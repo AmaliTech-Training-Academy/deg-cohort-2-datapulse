@@ -16,23 +16,61 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Dataset',
+            name="Dataset",
             fields=[
-                ('created_at', models.DateTimeField(auto_now_add=True, help_text='Timestamp when this record was created.')),
-                ('updated_at', models.DateTimeField(auto_now=True, help_text='Timestamp when this record was last updated.')),
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('file_name', models.CharField(max_length=255)),
-                ('file_type', models.CharField(choices=[('csv', 'CSV'), ('json', 'JSON')], max_length=10)),
-                ('file_path', models.CharField(max_length=500)),
-                ('row_count', models.IntegerField(blank=True, null=True)),
-                ('file_title', models.CharField(blank=True, max_length=255)),
-                ('description', models.TextField(blank=True)),
-                ('user', models.ForeignKey(db_column='user_id', on_delete=django.db.models.deletion.CASCADE, related_name='datasets', to=settings.AUTH_USER_MODEL)),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        auto_now_add=True,
+                        help_text="Timestamp when this record was created.",
+                    ),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(
+                        auto_now=True,
+                        help_text="Timestamp when this record was last updated.",
+                    ),
+                ),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("file_name", models.CharField(max_length=255)),
+                (
+                    "file_type",
+                    models.CharField(
+                        choices=[("csv", "CSV"), ("json", "JSON")], max_length=10
+                    ),
+                ),
+                ("file_path", models.CharField(max_length=500)),
+                ("row_count", models.IntegerField(blank=True, null=True)),
+                ("columns", models.JSONField(default=list, blank=True)),
+                ("file_title", models.CharField(blank=True, max_length=255)),
+                ("description", models.TextField(blank=True)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        db_column="user_id",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="datasets",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'db_table': 'datasets',
-                'ordering': ['-created_at'],
-                'indexes': [models.Index(fields=['user', '-created_at'], name='idx_dataset_user_created')],
+                "db_table": "datasets",
+                "ordering": ["-created_at"],
+                "indexes": [
+                    models.Index(
+                        fields=["user", "-created_at"], name="idx_dataset_user_created"
+                    )
+                ],
             },
         ),
     ]

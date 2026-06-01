@@ -74,6 +74,7 @@ class FileUploadService:
             file_type=file_type,
             file_path=file_path,
             row_count=len(df),
+            columns=list(df.columns),
             file_title=file_title or file.name,
             description=description,
         )
@@ -94,7 +95,9 @@ class FileUploadService:
         """Reject files larger than MAX_FILE_SIZE_BYTES before reading them."""
         if file.size > MAX_FILE_SIZE_BYTES:
             raise ValidationError(
-                {"file": f"File exceeds the {MAX_FILE_SIZE_BYTES // 1024 // 1024} MB limit."}
+                {
+                    "file": f"File exceeds the {MAX_FILE_SIZE_BYTES // 1024 // 1024} MB limit."
+                }
             )
 
     def _detect_type(self, file) -> str:
@@ -117,7 +120,9 @@ class FileUploadService:
         if "," in text or file.name.lower().endswith(".csv"):
             return "csv"
 
-        raise ValidationError({"file": "Unsupported file type. Upload a CSV or JSON file."})
+        raise ValidationError(
+            {"file": "Unsupported file type. Upload a CSV or JSON file."}
+        )
 
     def _save_to_disk(self, file, user_id, file_type: str) -> str:
         """Write the file to MEDIA_ROOT/uploads/<user_id>/<uuid>.<ext>."""
@@ -166,7 +171,9 @@ class FileUploadService:
         if len(df) > MAX_ROWS:
             self._remove_file(file_path)
             raise ValidationError(
-                {"file": f"File exceeds the {MAX_ROWS:,} row limit ({len(df):,} rows found)."}
+                {
+                    "file": f"File exceeds the {MAX_ROWS:,} row limit ({len(df):,} rows found)."
+                }
             )
 
     def _remove_file(self, file_path: str) -> None:
