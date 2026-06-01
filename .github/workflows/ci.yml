@@ -48,5 +48,6 @@ jobs:
     needs: [test-backend, test-data-engineering]
     steps:
       - uses: actions/checkout@v4
+      - run: cp .env.example .env
       - run: docker build -t datapulse-backend ./backend
       - run: docker compose config > /dev/null && echo "docker-compose config valid"
