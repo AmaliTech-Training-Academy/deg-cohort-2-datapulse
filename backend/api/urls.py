@@ -15,9 +15,9 @@ Route prefixes:
 from django.urls import include, path
 
 urlpatterns = [
-    path("auth/",     include("accounts.urls")),
+    path("auth/", include("accounts.urls")),
     path("datasets/", include("datasets.urls")),
-    path("rules/",    include("rules.urls")),
-    path("checks/",   include("checks.urls")),
-    path("reports/",  include("reports.urls")),
+    path("rules/", include("rules.urls")),
+    path("checks/", include("checks.urls")),
+    path("reports/", include("reports.urls")),
 ]

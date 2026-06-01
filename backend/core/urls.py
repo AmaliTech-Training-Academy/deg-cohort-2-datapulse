@@ -1,4 +1,5 @@
 """core/urls.py — health check route."""
+
 from django.urls import path
 from .views import HealthCheckView
 

@@ -82,10 +82,10 @@ def custom_exception_handler(exc: Exception, context: dict) -> Response | None:
     # Overwrite the response data with the normalised shape
     response.data = {
         "error": {
-            "code":    code,
+            "code": code,
             "message": message,
             # Keep the original field-level errors for form validation on the frontend
-            "fields":  response.data if isinstance(response.data, dict) else {},
+            "fields": response.data if isinstance(response.data, dict) else {},
         }
     }
 

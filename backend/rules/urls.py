@@ -14,7 +14,5 @@ Example:
     ]
 """
 
-from django.urls import path
-
 # Placeholder — no routes yet.
 urlpatterns: list = []

@@ -36,7 +36,7 @@ class User(AbstractUser):
     """
 
     class Role(models.TextChoices):
-        USER  = "user",  "User"
+        USER = "user", "User"
         ADMIN = "admin", "Admin"
 
     # Override email to make it unique and required — it's the login field
@@ -54,15 +54,15 @@ class User(AbstractUser):
     )
 
     # Use email as the login identifier instead of username
-    USERNAME_FIELD  = "email"
+    USERNAME_FIELD = "email"
     # username is still required by AbstractUser but not used for login
     REQUIRED_FIELDS = ["username"]
 
     class Meta:
         db_table = "accounts_user"
-        indexes  = [
+        indexes = [
             models.Index(fields=["email"], name="idx_user_email"),
-            models.Index(fields=["role"],  name="idx_user_role"),
+            models.Index(fields=["role"], name="idx_user_role"),
         ]
 
     def __str__(self) -> str:

@@ -46,7 +46,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model  = User
+        model = User
         fields = [
             "id",
             "email",
@@ -77,9 +77,7 @@ class RegisterSerializer(serializers.ModelSerializer):
                create_user() handles password hashing automatically
             3. Return the created user instance
         """
-        raise NotImplementedError(
-            "RegisterSerializer.create() is not implemented yet."
-        )
+        raise NotImplementedError("RegisterSerializer.create() is not implemented yet.")
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -92,6 +90,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
     """
 
     class Meta:
-        model  = User
+        model = User
         fields = ["id", "email", "first_name", "last_name", "role", "date_joined"]
         read_only_fields = fields

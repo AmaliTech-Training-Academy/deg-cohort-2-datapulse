@@ -19,15 +19,17 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 urlpatterns = [
     # ── Versioned API ─────────────────────────────────────────────────────────
     path("api/v1/", include("api.urls")),
-
     # ── Health check (unauthenticated) ────────────────────────────────────────
     path("health/", include("core.urls")),
-
     # ── OpenAPI schema + Swagger UI ───────────────────────────────────────────
     # /api/schema/ → raw JSON schema (used by codegen tools)
     # /api/docs/   → interactive Swagger UI for manual testing
-    path("api/schema/", SpectacularAPIView.as_view(),          name="schema"),
-    path("api/docs/",   SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path(
+        "api/docs/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
+    ),
 ]
 
 # ── Media file serving in development ────────────────────────────────────────
@@ -39,6 +41,7 @@ if settings.DEBUG:
 # ── Debug toolbar (development only) ─────────────────────────────────────────
 if settings.DEBUG:
     import debug_toolbar
+
     urlpatterns = [
         path("__debug__/", include(debug_toolbar.urls)),
     ] + urlpatterns

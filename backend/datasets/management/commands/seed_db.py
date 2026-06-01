@@ -47,9 +47,9 @@ class Command(BaseCommand):
         admin, created = User.objects.get_or_create(
             email="admin@amalitech.com",
             defaults={
-                "username":   "admin",
-                "role":       "admin",
-                "is_staff":   True,
+                "username": "admin",
+                "role": "admin",
+                "is_staff": True,
                 "is_superuser": True,
             },
         )
@@ -65,7 +65,7 @@ class Command(BaseCommand):
             email="user@amalitech.com",
             defaults={
                 "username": "testuser",
-                "role":     "user",
+                "role": "user",
             },
         )
         if created:
