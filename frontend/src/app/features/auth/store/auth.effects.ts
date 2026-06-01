@@ -35,6 +35,20 @@ export const registerEffect = createEffect(
   { functional: true },
 );
 
+export const forgotPasswordEffect = createEffect(
+  (actions$ = inject(Actions), authService = inject(AuthService)) =>
+    actions$.pipe(
+      ofType(AuthActions.forgotPassword),
+      switchMap(({ email }) =>
+        authService.forgotPassword(email).pipe(
+          map(() => AuthActions.forgotPasswordSuccess()),
+          catchError((err) => of(AuthActions.forgotPasswordFailure({ error: err.message }))),
+        ),
+      ),
+    ),
+  { functional: true },
+);
+
 export const saveTokenEffect = createEffect(
   (actions$ = inject(Actions)) =>
     actions$.pipe(

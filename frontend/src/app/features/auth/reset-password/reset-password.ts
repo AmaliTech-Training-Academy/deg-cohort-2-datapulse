@@ -3,30 +3,28 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { RouterLink } from '@angular/router';
 import * as AuthActions from '../store/auth.actions';
-import { selectAuthLoading, selectAuthError } from '../store/auth.selectors';
+import { selectAuthLoading, selectAuthError, selectForgotPasswordSent } from '../store/auth.selectors';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout';
 import { InputComponent } from '../../../shared/ui/input/input';
 import { ButtonComponent } from '../../../shared/ui/button/button';
 
 @Component({
-  selector: 'app-register',
+  selector: 'app-reset-password',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink, AuthLayoutComponent, InputComponent, ButtonComponent],
-  templateUrl: './register.html',
-  styleUrl: './register.css',
+  templateUrl: './reset-password.html',
+  styleUrl: './reset-password.css',
 })
-export class RegisterComponent {
+export class ResetPasswordComponent {
   private readonly store = inject(Store);
   private readonly fb = inject(FormBuilder);
 
   readonly loading = this.store.selectSignal(selectAuthLoading);
   readonly error = this.store.selectSignal(selectAuthError);
+  readonly sent = this.store.selectSignal(selectForgotPasswordSent);
 
   form = this.fb.group({
-    firstName: ['', Validators.required],
-    lastName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(8)]],
   });
 
   submit(): void {
@@ -34,8 +32,7 @@ export class RegisterComponent {
       this.form.markAllAsTouched();
       return;
     }
-    const { firstName, lastName, email, password } = this.form.getRawValue();
-    const name = `${firstName} ${lastName}`.trim();
-    this.store.dispatch(AuthActions.register({ name, email: email!, password: password! }));
+    const { email } = this.form.getRawValue();
+    this.store.dispatch(AuthActions.forgotPassword({ email: email! }));
   }
 }
