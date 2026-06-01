@@ -1,0 +1,40 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Environment files — NEVER send secrets into the build context ─────────────
+.env
+.env.*
+!.env.example
+
+# ── Development tools ─────────────────────────────────────────────────────────
+.git/
+.gitignore
+.pre-commit-config.yaml
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ── Runtime-generated directories ────────────────────────────────────────────
+logs/
+media/
+staticfiles/
+
+# ── IDE / OS files ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

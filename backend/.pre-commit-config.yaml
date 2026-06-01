@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DataPulse — pre-commit hooks
+# Install once after cloning:  pre-commit install
+# Run manually on all files:   pre-commit run --all-files
+# ─────────────────────────────────────────────────────────────────────────────
+
+repos:
+  # ── ruff: linter and import sorter ────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.8
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+
+  # ── flake8: explicitly required style checker ─────────────────────────────
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=120]
+        exclude: migrations/
+        files: ^backend/
+
+  # ── black: code formatter ─────────────────────────────────────────────────
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        files: ^backend/
+
+  # ── General hygiene ────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        files: ^backend/
+      - id: end-of-file-fixer
+        files: ^backend/
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-yaml
+        args: [--unsafe]
+        files: ^backend/
+      - id: debug-statements
+        files: ^backend/

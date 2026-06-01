@@ -1,14 +1,35 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-sqlalchemy==2.0.23
+# ── Web framework ─────────────────────────────────────────────────────────────
+Django==5.0.6
+djangorestframework==3.15.2
+
+# ── Authentication ────────────────────────────────────────────────────────────
+djangorestframework-simplejwt==5.3.1
+
+# ── API documentation ─────────────────────────────────────────────────────────
+drf-spectacular==0.27.2
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+django-cors-headers==4.4.0
+
+# ── Database ──────────────────────────────────────────────────────────────────
 psycopg2-binary==2.9.9
-pydantic==2.5.2
-pydantic-settings==2.1.0
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-bcrypt==4.0.1
-python-multipart==0.0.6
-pandas==2.1.4
-alembic==1.13.0
-pytest==7.4.3
-httpx==0.25.2
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+python-decouple==3.8
+
+# ── Data processing ───────────────────────────────────────────────────────────
+# Required by the validation engine in the checks app.
+# numpy is a pandas dependency — installed automatically, not listed separately.
+pandas==2.2.2
+
+# ── Structured logging ────────────────────────────────────────────────────────
+python-json-logger==2.0.7
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest==8.2.2
+pytest-django==4.8.0
+
+# ── Dev utilities ─────────────────────────────────────────────────────────────
+django-debug-toolbar==4.4.2
+# pre-commit runner — ruff and black are managed by pre-commit, not pip
+pre-commit==3.7.1
