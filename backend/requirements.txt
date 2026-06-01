@@ -13,15 +13,9 @@ django-cors-headers==4.4.0
 
 # ── Database ──────────────────────────────────────────────────────────────────
 psycopg2-binary==2.9.9
-dj-database-url==2.2.0
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 python-decouple==3.8
-
-# ── Data processing ───────────────────────────────────────────────────────────
-# Used by the validation engine in the checks app
-pandas==2.2.2
-numpy==1.26.4
 
 # ── Structured logging ────────────────────────────────────────────────────────
 python-json-logger==2.0.7
@@ -29,8 +23,6 @@ python-json-logger==2.0.7
 # ── Testing ───────────────────────────────────────────────────────────────────
 pytest==8.2.2
 pytest-django==4.8.0
-factory-boy==3.3.0
-Faker==25.9.2
 
 # ── Dev utilities ─────────────────────────────────────────────────────────────
 # Helps detect N+1 query problems during development
