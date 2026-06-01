@@ -18,7 +18,8 @@ psycopg2-binary==2.9.9
 python-decouple==3.8
 
 # ── Data processing ───────────────────────────────────────────────────────────
-# Used by the validation engine in the checks app
+# Required by the validation engine in the checks app.
+# numpy is a pandas dependency — installed automatically, not listed separately.
 pandas==2.2.2
 
 # ── Structured logging ────────────────────────────────────────────────────────
@@ -29,6 +30,6 @@ pytest==8.2.2
 pytest-django==4.8.0
 
 # ── Dev utilities ─────────────────────────────────────────────────────────────
-# Helps detect N+1 query problems during development
 django-debug-toolbar==4.4.2
+# pre-commit runner — ruff and black are managed by pre-commit, not pip
 pre-commit==3.7.1
