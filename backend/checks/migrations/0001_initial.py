@@ -17,14 +17,42 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="QualityCheck",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ("status", models.CharField(choices=[("pending", "Pending"), ("running", "Running"), ("completed", "Completed"), ("failed", "Failed")], default="pending", max_length=20)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "Pending"),
+                            ("running", "Running"),
+                            ("completed", "Completed"),
+                            ("failed", "Failed"),
+                        ],
+                        default="pending",
+                        max_length=20,
+                    ),
+                ),
                 ("overall_score", models.IntegerField(blank=True, null=True)),
                 ("total_rows_passed", models.IntegerField(blank=True, null=True)),
                 ("total_rows_failed", models.IntegerField(blank=True, null=True)),
                 ("error_message", models.TextField(blank=True)),
                 ("generated_at", models.DateTimeField(auto_now_add=True)),
-                ("dataset", models.ForeignKey(db_column="dataset_id", on_delete=django.db.models.deletion.CASCADE, related_name="checks", to="datasets.dataset")),
+                (
+                    "dataset",
+                    models.ForeignKey(
+                        db_column="dataset_id",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="checks",
+                        to="datasets.dataset",
+                    ),
+                ),
             ],
             options={
                 "db_table": "quality_reports",
@@ -34,13 +62,37 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="RuleFinding",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
                 ("rows_checked", models.IntegerField()),
                 ("rows_failed", models.IntegerField()),
                 ("failure_percentage", models.FloatField()),
                 ("error_details", models.JSONField(default=list)),
-                ("quality_check", models.ForeignKey(db_column="report_id", on_delete=django.db.models.deletion.CASCADE, related_name="findings", to="checks.qualitycheck")),
-                ("rule", models.ForeignKey(db_column="rule_id", on_delete=django.db.models.deletion.CASCADE, related_name="findings", to="rules.validationrule")),
+                (
+                    "quality_check",
+                    models.ForeignKey(
+                        db_column="report_id",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="findings",
+                        to="checks.qualitycheck",
+                    ),
+                ),
+                (
+                    "rule",
+                    models.ForeignKey(
+                        db_column="rule_id",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="findings",
+                        to="rules.validationrule",
+                    ),
+                ),
             ],
             options={
                 "db_table": "rule_findings",
@@ -48,7 +100,9 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="qualitycheck",
-            index=models.Index(fields=["dataset", "-generated_at"], name="idx_check_dataset"),
+            index=models.Index(
+                fields=["dataset", "-generated_at"], name="idx_check_dataset"
+            ),
         ),
         migrations.AddIndex(
             model_name="rulefinding",

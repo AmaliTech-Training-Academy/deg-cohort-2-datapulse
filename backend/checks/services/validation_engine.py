@@ -158,7 +158,9 @@ class ValidationEngine:
         combined_mask = null_mask | empty_mask
 
         failed_indexes = self.df[combined_mask].index.tolist()
-        error_details = self._build_errors(failed_indexes, col, reason="null or empty value")
+        error_details = self._build_errors(
+            failed_indexes, col, reason="null or empty value"
+        )
         return failed_indexes, error_details
 
     def _check_type(self, col: str, config: dict) -> tuple[list, list]:

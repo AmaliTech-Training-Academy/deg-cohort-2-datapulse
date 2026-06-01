@@ -85,7 +85,9 @@ class RuleListCreateView(APIView):
             )
 
         logger.info("Rule created: %s on dataset %s", rule.id, dataset.id)
-        return Response(ValidationRuleSerializer(rule).data, status=status.HTTP_201_CREATED)
+        return Response(
+            ValidationRuleSerializer(rule).data, status=status.HTTP_201_CREATED
+        )
 
 
 class RuleDetailView(APIView):

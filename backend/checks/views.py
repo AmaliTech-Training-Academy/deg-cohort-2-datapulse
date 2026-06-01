@@ -75,7 +75,9 @@ class RunCheckView(APIView):
             )
 
         # 3. Create check record — status=running immediately
-        check = QualityCheck.objects.create(dataset=dataset, status=QualityCheck.Status.RUNNING)
+        check = QualityCheck.objects.create(
+            dataset=dataset, status=QualityCheck.Status.RUNNING
+        )
 
         try:
             # 4. Load the file into a DataFrame
@@ -139,9 +141,7 @@ class RunCheckView(APIView):
             )
 
         # 9. Return completed check with all findings
-        serializer = QualityCheckSerializer(
-            check, context={"request": request}
-        )
+        serializer = QualityCheckSerializer(check, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -152,9 +152,9 @@ class CheckDetailView(APIView):
 
     def get(self, request: Request, check_id: str) -> Response:
         try:
-            check = QualityCheck.objects.prefetch_related(
-                "findings__rule"
-            ).get(id=check_id, dataset__user=request.user)
+            check = QualityCheck.objects.prefetch_related("findings__rule").get(
+                id=check_id, dataset__user=request.user
+            )
         except QualityCheck.DoesNotExist:
             raise NotFound("Check not found.")
 
