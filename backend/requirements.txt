@@ -20,7 +20,7 @@ python-decouple==3.8
 # ── Data processing ───────────────────────────────────────────────────────────
 # Required by the validation engine in the checks app.
 # numpy is a pandas dependency — installed automatically, not listed separately.
-pandas==2.2.2
+pandas==2.3.3
 
 # ── Structured logging ────────────────────────────────────────────────────────
 python-json-logger==2.0.7
