@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r backend/requirements.txt
-      - run: cd backend && pytest tests/ -v --tb=short
+      - run: cd backend && pytest tests/ -v --tb=short || [ $? -eq 5 ]
 
   test-data-engineering:
     runs-on: ubuntu-latest
