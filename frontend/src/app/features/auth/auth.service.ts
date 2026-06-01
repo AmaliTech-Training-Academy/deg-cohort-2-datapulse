@@ -21,6 +21,10 @@ export class AuthService {
     return this.http.post<AuthResponse>(`${this.baseUrl}/register`, { name, email, password });
   }
 
+  forgotPassword(email: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/forgot-password`, { email });
+  }
+
   logout(): Observable<void> {
     return this.http.post<void>(`${this.baseUrl}/logout`, {});
   }
