@@ -157,7 +157,9 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/day",
         "user": "1000/day",
-        "login": "5/minute",  # used by LoginRateThrottle in accounts app
+        "login": "5/minute",
+        "forgot_password": "3/hour",      # prevents email-bombing a target address
+        "resend_verification": "3/hour",  # same protection for verification resends
     },
     # Pagination — all list endpoints return max 20 items per page
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
@@ -171,6 +173,9 @@ REST_FRAMEWORK = {
 # ─────────────────────────────────────────────────────────────────────────────
 _JWT_ACCESS_HOURS: int = config("JWT_ACCESS_TOKEN_HOURS", default=24, cast=int)
 _JWT_REFRESH_DAYS: int = config("JWT_REFRESH_TOKEN_DAYS", default=7, cast=int)
+
+# Password reset token expires after 1 hour (Django default is 3 days — too long)
+PASSWORD_RESET_TIMEOUT = 3600  # seconds
 
 SIMPLE_JWT = {
     # Token lifetimes — read from .env so they can be changed per environment
@@ -238,6 +243,24 @@ CORS_ALLOW_HEADERS = [
     "x-csrftoken",
     "x-requested-with",
 ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Email
+# Console backend in development — set SMTP vars in .env for production.
+# ─────────────────────────────────────────────────────────────────────────────
+EMAIL_BACKEND: str = config(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+EMAIL_HOST: str = config("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT: int = config("EMAIL_PORT", default=587, cast=int)
+EMAIL_USE_TLS: bool = config("EMAIL_USE_TLS", default=True, cast=bool)
+EMAIL_HOST_USER: str = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD: str = config("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL: str = config("DEFAULT_FROM_EMAIL", default="DataPulse <noreply@datapulse.io>")
+
+# Base URL of the React frontend — used to build links in emails
+FRONTEND_URL: str = config("FRONTEND_URL", default="http://localhost:3000")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Debug Toolbar (development only)
