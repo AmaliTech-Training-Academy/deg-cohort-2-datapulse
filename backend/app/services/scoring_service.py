@@ -1,10 +1,6 @@
-"""Scoring service - STUB: Needs implementation."""
-
-
 def calculate_quality_score(results: list, rules: list) -> dict:
-    """Calculate weighted quality score.
-
-    TODO: Implement quality score calculation.
+    """
+    TODO: Calculate weighted quality score.
 
     Weighting by severity:
         HIGH = 3x weight
@@ -20,8 +16,6 @@ def calculate_quality_score(results: list, rules: list) -> dict:
     Example return:
         {"score": 85.5, "total_rules": 5, "passed_rules": 4, "failed_rules": 1}
     """
-    # TODO: Implement weighted scoring
-    severity_weights = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
     return {
         "score": 0.0,
         "total_rules": len(rules),

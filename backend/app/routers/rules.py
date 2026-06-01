@@ -1,7 +1,5 @@
-"""Validation rules router - PARTIAL implementation."""
-
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.rule import ValidationRule
@@ -15,20 +13,20 @@ VALID_SEVERITIES = {"HIGH", "MEDIUM", "LOW"}
 
 @router.post("", response_model=RuleResponse, status_code=201)
 def create_rule(rule_data: RuleCreate, db: Session = Depends(get_db)):
-    """Create a new validation rule - IMPLEMENTED."""
     if rule_data.rule_type not in VALID_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid rule_type: {VALID_TYPES}")
     if rule_data.severity not in VALID_SEVERITIES:
         raise HTTPException(status_code=400, detail=f"Invalid severity: {VALID_SEVERITIES}")
     rule = ValidationRule(**rule_data.model_dump())
-    db.add(rule); db.commit(); db.refresh(rule)
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
     return rule
 
 
 @router.get("", response_model=list[RuleResponse])
 def list_rules(dataset_type: Optional[str] = Query(None), db: Session = Depends(get_db)):
-    """List validation rules - IMPLEMENTED."""
-    q = db.query(ValidationRule).filter(ValidationRule.is_active == True)
+    q = db.query(ValidationRule).filter(ValidationRule.is_active.is_(True))
     if dataset_type:
         q = q.filter(ValidationRule.dataset_type == dataset_type)
     return q.all()
@@ -36,7 +34,8 @@ def list_rules(dataset_type: Optional[str] = Query(None), db: Session = Depends(
 
 @router.put("/{rule_id}", response_model=RuleResponse)
 def update_rule(rule_id: int, rule_data: RuleUpdate, db: Session = Depends(get_db)):
-    """Update a validation rule - TODO: Implement.
+    """
+    TODO: Update a validation rule.
 
     Steps:
     1. Fetch rule by ID (404 if not found)
@@ -49,7 +48,8 @@ def update_rule(rule_id: int, rule_data: RuleUpdate, db: Session = Depends(get_d
 
 @router.delete("/{rule_id}", status_code=204)
 def delete_rule(rule_id: int, db: Session = Depends(get_db)):
-    """Soft-delete a validation rule - TODO: Implement.
+    """
+    TODO: Soft-delete a validation rule.
 
     Steps:
     1. Fetch rule by ID (404 if not found)

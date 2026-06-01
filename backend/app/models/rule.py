@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
 from app.database import Base
 
+
 class ValidationRule(Base):
     __tablename__ = "validation_rules"
 

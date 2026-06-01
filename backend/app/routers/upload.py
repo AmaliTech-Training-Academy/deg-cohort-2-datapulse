@@ -1,7 +1,7 @@
-"""Dataset upload router - IMPLEMENTED."""
-
-import os, json, uuid
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
+import os
+import json
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
@@ -14,7 +14,6 @@ router = APIRouter()
 
 @router.post("/upload", response_model=DatasetResponse, status_code=201)
 def upload_dataset(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Upload a CSV or JSON file and store dataset metadata."""
     filename = file.filename or ""
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if ext not in ("csv", "json"):
@@ -36,20 +35,30 @@ def upload_dataset(file: UploadFile = File(...), db: Session = Depends(get_db)):
         os.remove(file_path)
         raise HTTPException(status_code=400, detail=f"Failed to parse: {e}")
 
-    dataset = Dataset(name=filename.rsplit(".",1)[0], file_type=ext,
-        row_count=metadata["row_count"], column_count=metadata["column_count"],
-        column_names=json.dumps(metadata["column_names"]), status="PENDING")
-    db.add(dataset); db.commit(); db.refresh(dataset)
+    dataset = Dataset(
+        name=filename.rsplit(".", 1)[0],
+        file_type=ext,
+        row_count=metadata["row_count"],
+        column_count=metadata["column_count"],
+        column_names=json.dumps(metadata["column_names"]),
+        status="PENDING",
+    )
+    db.add(dataset)
+    db.commit()
+    db.refresh(dataset)
 
     df = DatasetFile(dataset_id=dataset.id, file_path=file_path, original_filename=filename)
-    db.add(df); db.commit()
+    db.add(df)
+    db.commit()
     return dataset
 
 
 @router.get("", response_model=DatasetList)
-def list_datasets(skip: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=100),
-        db: Session = Depends(get_db)):
-    """List all datasets with pagination."""
+def list_datasets(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
     total = db.query(Dataset).count()
     datasets = db.query(Dataset).offset(skip).limit(limit).all()
     return DatasetList(datasets=datasets, total=total)

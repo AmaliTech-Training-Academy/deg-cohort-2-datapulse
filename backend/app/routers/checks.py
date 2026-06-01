@@ -1,18 +1,15 @@
-"""Quality checks router - STUB: All endpoints need implementation."""
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.schemas.report import CheckResultResponse, QualityScoreResponse
+from app.schemas.report import CheckResultResponse
 
 router = APIRouter()
 
 
 @router.post("/run/{dataset_id}", status_code=200)
 def run_checks(dataset_id: int, db: Session = Depends(get_db)):
-    """Run all applicable validation checks on a dataset.
-
-    TODO: Implement this endpoint.
+    """
+    TODO: Run all validation checks on a dataset.
 
     Steps:
     1. Fetch dataset by ID (404 if not found)
@@ -31,9 +28,8 @@ def run_checks(dataset_id: int, db: Session = Depends(get_db)):
 
 @router.get("/results/{dataset_id}", response_model=list[CheckResultResponse])
 def get_check_results(dataset_id: int, db: Session = Depends(get_db)):
-    """Get all check results for a dataset.
-
-    TODO: Implement this endpoint.
+    """
+    TODO: Get all check results for a dataset.
 
     Steps:
     1. Query CheckResult table by dataset_id

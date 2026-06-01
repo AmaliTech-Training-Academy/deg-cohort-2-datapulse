@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, Float, Boolean, DateTime, ForeignKey, Text
 from app.database import Base
 
+
 class CheckResult(Base):
     __tablename__ = "check_results"
 

@@ -1,6 +1,4 @@
-"""FastAPI dependencies - IMPLEMENTED."""
-
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -14,7 +12,6 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
-    """Extract and validate JWT token, return current user."""
     token = credentials.credentials
     payload = verify_token(token)
     if payload is None:

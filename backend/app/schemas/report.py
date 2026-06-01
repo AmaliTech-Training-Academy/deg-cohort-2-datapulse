@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 
+
 class CheckResultResponse(BaseModel):
     id: int
     dataset_id: int
@@ -11,8 +12,10 @@ class CheckResultResponse(BaseModel):
     total_rows: int
     details: Optional[str] = None
     checked_at: datetime
+
     class Config:
         from_attributes = True
+
 
 class QualityScoreResponse(BaseModel):
     id: int
@@ -22,8 +25,10 @@ class QualityScoreResponse(BaseModel):
     passed_rules: int
     failed_rules: int
     checked_at: datetime
+
     class Config:
         from_attributes = True
+
 
 class QualityReport(BaseModel):
     dataset_id: int
