@@ -13,7 +13,6 @@ multipart/form-data body. All other views use the default JSON parser.
 import logging
 
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -92,6 +91,7 @@ class DatasetDetailView(APIView):
             return Dataset.objects.get(id=dataset_id, user=user)
         except Dataset.DoesNotExist:
             from rest_framework.exceptions import NotFound
+
             raise NotFound("Dataset not found.")
 
     def get(self, request: Request, dataset_id: str) -> Response:

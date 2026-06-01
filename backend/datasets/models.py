@@ -41,7 +41,9 @@ class Dataset(TimeStampedModel):
         db_table = "datasets"
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["user", "-created_at"], name="idx_dataset_user_created"),
+            models.Index(
+                fields=["user", "-created_at"], name="idx_dataset_user_created"
+            ),
         ]
 
     def __str__(self):
