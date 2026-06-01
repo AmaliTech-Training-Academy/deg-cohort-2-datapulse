@@ -4,5 +4,4 @@ exclude =
     __pycache__,
     .git,
     venv,
-    .venv,
-    */migrations/*
+    .venv
