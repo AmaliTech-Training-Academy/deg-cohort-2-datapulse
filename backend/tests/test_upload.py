@@ -1,7 +1,6 @@
 """Upload tests - IMPLEMENTED."""
 
 import io
-import pytest
 
 
 def test_upload_csv_success(client):

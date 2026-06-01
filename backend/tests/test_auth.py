@@ -1,7 +1,5 @@
 """Authentication tests - IMPLEMENTED."""
 
-import pytest
-
 
 def test_register_success(client):
     resp = client.post("/api/auth/register", json={

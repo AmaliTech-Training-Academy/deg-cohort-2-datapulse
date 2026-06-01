@@ -46,8 +46,10 @@ def test_db():
 
 @pytest.fixture
 def sample_user(client):
-    resp = client.post("/api/auth/register",
-        json={"email": "test@example.com", "password": "test123", "full_name": "Test User"})
+    resp = client.post(
+        "/api/auth/register",
+        json={"email": "test@example.com", "password": "test123", "full_name": "Test User"},
+    )
     return resp.json()
 
 
