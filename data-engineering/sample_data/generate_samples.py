@@ -97,18 +97,18 @@ if __name__ == "__main__":
 
     # Small datasets (used directly in tests) 
 
-    print("good_data.csv   — target score ~95")
+    print("clean_data.csv   — target score ~95")
     generate_dataset(
         num_rows=100,
         error_rate=0.05,
-        output_path=os.path.join(d, "good_data.csv")
+        output_path=os.path.join(d, "clean_data.csv")
     )
 
-    print("\nbad_data.csv    — target score ~40")
+    print("\nmessy_data.csv    — target score ~40")
     generate_dataset(
         num_rows=100,
         error_rate=0.60,
-        output_path=os.path.join(d, "bad_data.csv")
+        output_path=os.path.join(d, "messy_data.csv")
     )
 
     print("\nmixed_data.csv  — target score ~70")
@@ -120,25 +120,25 @@ if __name__ == "__main__":
 
     # Large datasets (for scale testing) 
 
-    print("\nlarge_clean.csv  — target score ~95 (500 rows)")
+    print("\nlarge_clean_data.csv  — target score ~95 (500 rows)")
     generate_dataset(
         num_rows=500,
         error_rate=0.05,
-        output_path=os.path.join(d, "large_clean.csv")
+        output_path=os.path.join(d, "large_clean_data.csv")
     )
 
-    print("\nlarge_dirty.csv  — target score ~40 (500 rows)")
+    print("\nlarge_messy_data.csv  — target score ~40 (500 rows)")
     generate_dataset(
         num_rows=500,
         error_rate=0.60,
-        output_path=os.path.join(d, "large_dirty.csv")
+        output_path=os.path.join(d, "large_messy_data.csv")
     )
 
-    print("\nlarge_mixed.csv  — target score ~70 (500 rows)")
+    print("\nlarge_mixed_data.csv  — target score ~70 (500 rows)")
     generate_dataset(
         num_rows=500,
         error_rate=0.30,
-        output_path=os.path.join(d, "large_mixed.csv")
+        output_path=os.path.join(d, "large_mixed_data.csv")
     )
 
     print("\nAll datasets generated successfully.\n")
