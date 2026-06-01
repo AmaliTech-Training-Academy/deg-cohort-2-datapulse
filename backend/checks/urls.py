@@ -1,18 +1,23 @@
-"""
-checks/urls.py
-────────────────────────────────────────────────────────────────────────────────
-TODO: register your checks URL patterns here.
-This file is already included in api/urls.py.
+"""checks/urls.py — mounted via api/urls.py"""
 
-Example:
-    from django.urls import path
-    from .views import MyListView, MyDetailView
+from django.urls import path
 
-    urlpatterns = [
-        path("",       MyListView.as_view(),   name="checks-list"),
-        path("<int:pk>/", MyDetailView.as_view(), name="checks-detail"),
-    ]
-"""
+from .views import CheckDetailView, CheckListView, RunCheckView
 
-# Placeholder — no routes yet.
-urlpatterns: list = []
+urlpatterns = [
+    path(
+        "datasets/<uuid:dataset_id>/run-check/",
+        RunCheckView.as_view(),
+        name="run-check",
+    ),
+    path(
+        "datasets/<uuid:dataset_id>/checks/",
+        CheckListView.as_view(),
+        name="check-list",
+    ),
+    path(
+        "checks/<uuid:check_id>/",
+        CheckDetailView.as_view(),
+        name="check-detail",
+    ),
+]

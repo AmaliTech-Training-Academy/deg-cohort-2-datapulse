@@ -1,26 +1,48 @@
 """
 checks/serializers.py
 ────────────────────────────────────────────────────────────────────────────────
-TODO: define your checks serializers here.
-
-Serializers validate incoming request data and control what fields are
-returned in responses.
-
-Pattern used in this project:
-    • One serializer per logical operation (Create, Update, List, Detail)
-    • Never expose internal fields like file_path in responses
-    • Use read_only_fields for fields the client should not be able to set
-
-Example:
-
-    from rest_framework import serializers
-    from .models import MyModel
-
-    class MyModelSerializer(serializers.ModelSerializer):
-        class Meta:
-            model  = MyModel
-            fields = ["id", "name", "created_at"]
-            read_only_fields = ["id", "created_at"]
+RuleFindingSerializer  — per-rule results nested inside check response
+QualityCheckSerializer — full check run response
 """
 
-# Placeholder — no serializers implemented yet.
+from rest_framework import serializers
+
+from .models import QualityCheck, RuleFinding
+
+
+class RuleFindingSerializer(serializers.ModelSerializer):
+    rule_type = serializers.CharField(source="rule.rule_type", read_only=True)
+    column_name = serializers.CharField(source="rule.column_name", read_only=True)
+
+    class Meta:
+        model = RuleFinding
+        fields = [
+            "id",
+            "rule",
+            "rule_type",
+            "column_name",
+            "rows_checked",
+            "rows_failed",
+            "failure_percentage",
+            "error_details",
+        ]
+        read_only_fields = fields
+
+
+class QualityCheckSerializer(serializers.ModelSerializer):
+    findings = RuleFindingSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = QualityCheck
+        fields = [
+            "id",
+            "dataset",
+            "status",
+            "overall_score",
+            "total_rows_passed",
+            "total_rows_failed",
+            "findings",
+            "error_message",
+            "generated_at",
+        ]
+        read_only_fields = fields
