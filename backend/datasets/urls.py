@@ -1,18 +1,11 @@
-"""
-datasets/urls.py
-────────────────────────────────────────────────────────────────────────────────
-TODO: register your datasets URL patterns here.
-This file is already included in api/urls.py.
+"""datasets/urls.py — mounted at /api/v1/datasets/ via api/urls.py"""
 
-Example:
-    from django.urls import path
-    from .views import MyListView, MyDetailView
+from django.urls import path
 
-    urlpatterns = [
-        path("",       MyListView.as_view(),   name="datasets-list"),
-        path("<int:pk>/", MyDetailView.as_view(), name="datasets-detail"),
-    ]
-"""
+from .views import DatasetDetailView, DatasetListView, DatasetUploadView
 
-# Placeholder — no routes yet.
-urlpatterns: list = []
+urlpatterns = [
+    path("", DatasetListView.as_view(), name="dataset-list"),
+    path("upload/", DatasetUploadView.as_view(), name="dataset-upload"),
+    path("<uuid:dataset_id>/", DatasetDetailView.as_view(), name="dataset-detail"),
+]

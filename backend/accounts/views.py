@@ -1,123 +1,228 @@
 """
 accounts/views.py
 ────────────────────────────────────────────────────────────────────────────────
-Authentication views.
-
-RegisterView       POST /api/v1/auth/register/   — create account
-LoginView          POST /api/v1/auth/login/       — get JWT tokens
-TokenRefreshView   POST /api/v1/auth/refresh/     — rotate tokens
-MeView             GET  /api/v1/auth/me/           — current user profile
-
-All views except MeView use AllowAny (no token required).
-MeView requires a valid Bearer token.
-
-TODO (implement during your sprint):
-    • RegisterView.post()  — call RegisterSerializer, return 201
-    • LoginView.post()     — call CustomTokenObtainPairSerializer, return tokens + user
-    • MeView.get()         — return UserProfileSerializer(request.user).data
+Authentication views with full OpenAPI schema annotations so Swagger shows
+all request/response bodies correctly.
 """
 
 import logging
 
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from accounts.emails import send_password_reset_email, send_verification_email
+from accounts.throttles import (
+    ForgotPasswordThrottle,
+    LoginThrottle,
+    ResendVerificationThrottle,
+)
+from accounts.serializers import (
+    CustomTokenObtainPairSerializer,
+    ForgotPasswordSerializer,
+    RegisterSerializer,
+    ResendVerificationSerializer,
+    ResetPasswordSerializer,
+    UserProfileSerializer,
+    VerifyEmailSerializer,
+)
+from .tokens import make_email_verification_token, password_reset_token_generator
+
 logger = logging.getLogger(__name__)
+
+_TAG = ["Authentication"]
 
 
 class RegisterView(APIView):
-    """
-    POST /api/v1/auth/register/
-    Create a new user account.
-
-    Request body:
-        {
-            "email":      "user@example.com",
-            "password":   "securepassword",
-            "password2":  "securepassword",
-            "first_name": "Ada",
-            "last_name":  "Lovelace"
-        }
-
-    Response 201:
-        { "id": 1, "email": "user@example.com", "role": "user" }
-
-    TODO: implement the post() method.
-    """
-
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        tags=_TAG,
+        summary="Register a new user account",
+        request=RegisterSerializer,
+        responses={
+            201: UserProfileSerializer,
+            400: OpenApiResponse(
+                description="Validation error (e.g. passwords don't match, email taken)"
+            ),
+        },
+    )
     def post(self, request: Request) -> Response:
-        raise NotImplementedError(
-            "RegisterView.post() is not implemented yet.\n"
-            "Steps:\n"
-            "  1. Validate request.data with RegisterSerializer\n"
-            "  2. Call serializer.save() to create the user\n"
-            "  3. Return Response(data, status=201)"
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        try:
+            token = make_email_verification_token(user.email)
+            send_verification_email(user, token)
+            message = "Registration successful. Please check your email to verify your account."
+        except Exception:
+            logger.exception("Failed to send verification email to %s", user.email)
+            message = (
+                "Registration successful, but the verification email could not be sent. "
+                "Use /resend-verification/ to request a new link."
+            )
+
+        logger.info("New user registered: %s", user.email)
+        return Response(
+            {"message": message, "user": UserProfileSerializer(user).data},
+            status=status.HTTP_201_CREATED,
         )
 
 
 class LoginView(TokenObtainPairView):
-    """
-    POST /api/v1/auth/login/
-    Authenticate with email + password, receive JWT access and refresh tokens.
-
-    Response 200:
-        {
-            "access":  "<jwt-access-token>",
-            "refresh": "<jwt-refresh-token>",
-            "user":    { "id": 1, "email": "...", "role": "user" }
-        }
-
-    Extends SimpleJWT's TokenObtainPairView.
-    To embed user data in the response, create a CustomTokenObtainPairSerializer
-    that overrides validate() and adds the user fields.
-
-    TODO: create CustomTokenObtainPairSerializer in serializers.py and
-          set serializer_class = CustomTokenObtainPairSerializer here.
-    """
-
     permission_classes = [AllowAny]
-    # TODO: set serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes = [LoginThrottle]
+    serializer_class = CustomTokenObtainPairSerializer
+
+    @extend_schema(
+        tags=_TAG,
+        summary="Login — get JWT access and refresh tokens",
+        responses={
+            200: OpenApiResponse(description="JWT tokens + user profile"),
+            400: OpenApiResponse(
+                description="Invalid credentials or email not verified"
+            ),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
 
 class RefreshTokenView(TokenRefreshView):
-    """
-    POST /api/v1/auth/refresh/
-    Exchange a valid refresh token for a new access + refresh token pair.
-
-    With ROTATE_REFRESH_TOKENS=True, the old refresh token is blacklisted
-    after every successful refresh call.
-
-    No implementation needed — inherits all behaviour from SimpleJWT.
-    """
-
     permission_classes = [AllowAny]
+
+    @extend_schema(
+        tags=_TAG,
+        summary="Refresh — exchange a refresh token for a new token pair",
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
 
 class MeView(APIView):
-    """
-    GET /api/v1/auth/me/
-    Return the profile of the currently authenticated user.
-
-    Used by the React frontend on app load to verify the stored token is
-    still valid and to re-hydrate the user context.
-
-    Response 200:
-        { "id": 1, "email": "...", "first_name": "Ada", "role": "user" }
-
-    TODO: implement the get() method.
-    """
-
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        tags=_TAG,
+        summary="Me — return the current authenticated user's profile",
+        responses={200: UserProfileSerializer},
+    )
     def get(self, request: Request) -> Response:
-        raise NotImplementedError(
-            "MeView.get() is not implemented yet.\n"
-            "Steps:\n"
-            "  1. Serialize request.user with UserProfileSerializer\n"
-            "  2. Return Response(serializer.data)"
+        return Response(UserProfileSerializer(request.user).data)
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        tags=_TAG,
+        summary="Verify email — confirm the signed token from the verification email",
+        request=VerifyEmailSerializer,
+        responses={
+            200: OpenApiResponse(description="Email verified successfully"),
+            400: OpenApiResponse(description="Token invalid or expired"),
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = VerifyEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        logger.info("Email verified for user: %s", user.email)
+        return Response({"message": "Email verified successfully. You can now log in."})
+
+
+class ResendVerificationView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [ResendVerificationThrottle]
+
+    @extend_schema(
+        tags=_TAG,
+        summary="Resend verification email",
+        request=ResendVerificationSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Email sent if address is registered and unverified"
+            )
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = ResendVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.user
+        if user is not None:
+            try:
+                token = make_email_verification_token(user.email)
+                send_verification_email(user, token)
+            except Exception:
+                logger.exception(
+                    "Failed to resend verification email to %s", user.email
+                )
+        return Response(
+            {
+                "message": "If that email is registered and unverified, a new verification link has been sent."
+            }
+        )
+
+
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [ForgotPasswordThrottle]
+
+    @extend_schema(
+        tags=_TAG,
+        summary="Forgot password — send a password reset link",
+        request=ForgotPasswordSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Reset email sent if address is registered"
+            )
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = ForgotPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.user
+        if user is not None:
+            try:
+                token = password_reset_token_generator.make_token(user)
+                send_password_reset_email(user, token)
+            except Exception:
+                logger.exception(
+                    "Failed to send password reset email to %s", user.email
+                )
+        return Response(
+            {
+                "message": "If an account with that email exists, a password reset link has been sent."
+            }
+        )
+
+
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        tags=_TAG,
+        summary="Reset password — set a new password using the token from the reset email",
+        request=ResetPasswordSerializer,
+        responses={
+            200: OpenApiResponse(description="Password reset successfully"),
+            400: OpenApiResponse(
+                description="Invalid/expired token or passwords don't match"
+            ),
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = ResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        logger.info("Password reset for user: %s", user.email)
+        return Response(
+            {
+                "message": "Password reset successful. You can now log in with your new password."
+            }
         )

@@ -1,22 +1,55 @@
 """
 rules/models.py
 ────────────────────────────────────────────────────────────────────────────────
-TODO: define your rules models here.
+ValidationRule — one rule per column per rule type per dataset.
 
-All models should inherit from core.models.TimeStampedModel to get
-created_at and updated_at timestamps for free.
+rule_config stores rule-type-specific parameters as JSON:
+    null_check:       {}
+    type_check:       {"expected_type": "integer"}
+    range_check:      {"min": 0, "max": 120}
+    uniqueness_check: {}
 
-Example skeleton:
-
-    from core.models import TimeStampedModel
-    from django.db import models
-
-    class MyModel(TimeStampedModel):
-        name = models.CharField(max_length=255)
-
-        class Meta:
-            db_table = "rules_mymodel"
+A UniqueConstraint on (dataset, column_name, rule_type) prevents
+duplicates — the same check on the same column cannot be added twice.
 """
 
-# Placeholder — no models implemented yet.
-# Remove this comment and add your models when you start this app.
+import uuid
+
+from django.db import models
+
+
+class ValidationRule(models.Model):
+
+    class RuleType(models.TextChoices):
+        NULL_CHECK = "null_check", "Null Check"
+        TYPE_CHECK = "type_check", "Type Check"
+        RANGE_CHECK = "range_check", "Range Check"
+        UNIQUENESS_CHECK = "uniqueness_check", "Uniqueness Check"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    dataset = models.ForeignKey(
+        "datasets.Dataset",
+        on_delete=models.CASCADE,
+        related_name="rules",
+        db_column="dataset_id",
+    )
+    column_name = models.CharField(max_length=255)
+    rule_type = models.CharField(max_length=30, choices=RuleType.choices)
+    rule_config = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "validation_rules"
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["dataset", "column_name", "rule_type"],
+                name="unique_rule_per_column_type",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["dataset"], name="idx_rule_dataset"),
+        ]
+
+    def __str__(self):
+        return f"{self.rule_type} on '{self.column_name}'"
