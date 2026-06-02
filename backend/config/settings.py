@@ -1,14 +1,5 @@
 """
-DataPulse – Django settings
-────────────────────────────────────────────────────────────────────────────────
-All runtime values are read from environment variables (or a .env file via
-python-decouple).  See .env.example for the full list of required variables.
-
-Pattern borrowed from Emmanuel's URL-shortener settings (shared by team):
-  • python-decouple for typed env reads with fail-fast validation
-  • Structured JSON logging (pythonjsonlogger) with daily rotation
-  • Explicit REST_FRAMEWORK, SIMPLE_JWT, SPECTACULAR_SETTINGS blocks
-  • CorsMiddleware placed before CommonMiddleware (required by django-cors-headers)
+DataPulse - Django settings
 """
 
 from datetime import timedelta
@@ -16,10 +7,10 @@ from pathlib import Path
 
 from decouple import Csv, UndefinedValueError, config
 
-# ── Base directory ────────────────────────────────────────────────────────────
+#  Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ── Fail-fast secret key validation ──────────────────────────────────────────
+#  Fail-fast secret key validation
 # Raises a clear RuntimeError instead of a cryptic Django error when the key
 # is missing.  CI environments skip this check via the CI env variable.
 try:
@@ -35,7 +26,7 @@ except UndefinedValueError:
             'Quick fix: echo SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(50))") >> .env'
         )
 
-# ── Core Django settings ──────────────────────────────────────────────────────
+#  Core Django settings
 DEBUG: bool = config("DEBUG", default=False, cast=bool)
 
 ALLOWED_HOSTS: list[str] = config(
@@ -44,7 +35,7 @@ ALLOWED_HOSTS: list[str] = config(
     cast=Csv(),
 )
 
-# ── Application registry ──────────────────────────────────────────────────────
+#  Application registry
 DJANGO_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
@@ -72,10 +63,10 @@ LOCAL_APPS = [
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
-# ── IMPORTANT: must point to the custom User model BEFORE any migration ───────
+# IMPORTANT: must point to the custom User model BEFORE any migration
 AUTH_USER_MODEL = "accounts.User"
 
-# ── Middleware ────────────────────────────────────────────────────────────────
+# Middleware
 # CorsMiddleware MUST come before CommonMiddleware (django-cors-headers docs).
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -88,11 +79,11 @@ if DEBUG:
     # django-debug-toolbar must be after SecurityMiddleware
     MIDDLEWARE.insert(1, "debug_toolbar.middleware.DebugToolbarMiddleware")
 
-# ── URL routing ───────────────────────────────────────────────────────────────
+# URL routing
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
-# ── Templates (minimal – DRF does not need template rendering) ────────────────
+# Templates (minimal – DRF does not need template rendering)
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -106,9 +97,8 @@ TEMPLATES = [
     },
 ]
 
-# ── Database ──────────────────────────────────────────────────────────────────
-# Reads individual DB_* vars (same pattern as Emmanuel's settings).
-# DB_HOST should be "db" inside Docker Compose and "localhost" locally.
+#  Database
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -122,22 +112,20 @@ DATABASES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ── Static and media files ────────────────────────────────────────────────────
-STATIC_URL = "/static/"
+# Static and media files
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = config("MEDIA_URL", default="/media/")
 MEDIA_ROOT = BASE_DIR / config("MEDIA_ROOT", default="media")
 
-# ── Internationalisation (minimal) ───────────────────────────────────────────
+# Internationalisation (minimal)
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Django REST Framework
-# ─────────────────────────────────────────────────────────────────────────────
+
 REST_FRAMEWORK = {
     # Auto-schema class for drf-spectacular (OpenAPI 3)
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -168,9 +156,7 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Simple JWT
-# ─────────────────────────────────────────────────────────────────────────────
+# Simple JWT (JSON Web Tokens) for authentication
 _JWT_ACCESS_HOURS: int = config("JWT_ACCESS_TOKEN_HOURS", default=24, cast=int)
 _JWT_REFRESH_DAYS: int = config("JWT_REFRESH_TOKEN_DAYS", default=7, cast=int)
 
@@ -191,10 +177,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN": "access",
     "REFRESH_TOKEN": "refresh",
 }
-
-# ─────────────────────────────────────────────────────────────────────────────
-# drf-spectacular  (OpenAPI / Swagger)
-# ─────────────────────────────────────────────────────────────────────────────
+# drf-spectacular (OpenAPI schema generation for Swagger UI)
 SPECTACULAR_SETTINGS = {
     "TITLE": "DataPulse API",
     "DESCRIPTION": (
@@ -216,17 +199,14 @@ SPECTACULAR_SETTINGS = {
         }
     },
 }
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CORS  (django-cors-headers)
-# ─────────────────────────────────────────────────────────────────────────────
+# CORS (Cross-Origin Resource Sharing) settings for allowing the React frontend to talk to this API.
 CORS_ALLOWED_ORIGINS: list[str] = config(
     "CORS_ALLOWED_ORIGINS",
     default="http://localhost:3000,http://127.0.0.1:3000",
     cast=Csv(),
 )
 
-# Required when the React frontend uses credentials: "include" in fetch calls
+# Required when the Angular frontend uses credentials: "include" in fetch calls
 CORS_ALLOW_CREDENTIALS = True
 
 # Forward the Authorization header — needed for JWT in browser fetch requests
@@ -244,10 +224,9 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Email
 # Console backend in development — set SMTP vars in .env for production.
-# ─────────────────────────────────────────────────────────────────────────────
+
 EMAIL_BACKEND: str = config(
     "EMAIL_BACKEND",
     default="django.core.mail.backends.console.EmailBackend",
@@ -264,17 +243,12 @@ DEFAULT_FROM_EMAIL: str = config(
 # Base URL of the React frontend — used to build links in emails
 FRONTEND_URL: str = config("FRONTEND_URL", default="http://localhost:3000")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Debug Toolbar (development only)
-# ─────────────────────────────────────────────────────────────────────────────
+# toolbar
 if DEBUG:
     INTERNAL_IPS = ["127.0.0.1", "localhost"]
 
-# ─────────────────────────────────────────────────────────────────────────────
+
 # Structured JSON Logging
-# Pattern from Emmanuel's settings: JSON in production, verbose locally,
-# daily-rotating file handlers, separate error log file.
-# ─────────────────────────────────────────────────────────────────────────────
 LOG_LEVEL: str = config("LOG_LEVEL", default="INFO")
 
 # Detect whether python-json-logger is available (graceful fallback)
@@ -292,7 +266,7 @@ LOG_DIR.mkdir(exist_ok=True)
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    # ── Formatters ────────────────────────────────────────────────────────────
+    #  Formatters
     "formatters": {
         # Human-readable format for local development (DEBUG=True)
         "verbose": {
@@ -316,7 +290,7 @@ LOGGING = {
             }
         ),
     },
-    # ── Handlers ──────────────────────────────────────────────────────────────
+    # Handlers
     "handlers": {
         # Console: JSON in production, verbose locally
         "console": {
@@ -343,12 +317,12 @@ LOGGING = {
             "level": "ERROR",
         },
     },
-    # ── Root logger: catches everything not handled by a named logger ─────────
+    #  Root logger: catches everything not handled by a named logger
     "root": {
         "handlers": ["console", "file"],
         "level": LOG_LEVEL,
     },
-    # ── Per-app loggers ───────────────────────────────────────────────────────
+    # Per-app loggers
     "loggers": {
         # Each DataPulse app gets its own logger so log messages are easy to
         # trace back to their source.  Import with:

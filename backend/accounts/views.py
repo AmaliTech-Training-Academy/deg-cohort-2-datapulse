@@ -16,7 +16,11 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts.emails import send_password_reset_email, send_verification_email
-from accounts.throttles import ForgotPasswordThrottle, LoginThrottle, ResendVerificationThrottle
+from accounts.throttles import (
+    ForgotPasswordThrottle,
+    LoginThrottle,
+    ResendVerificationThrottle,
+)
 from accounts.serializers import (
     CustomTokenObtainPairSerializer,
     ForgotPasswordSerializer,
