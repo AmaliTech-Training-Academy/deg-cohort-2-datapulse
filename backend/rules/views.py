@@ -12,6 +12,7 @@ Ownership is enforced at every level:
 import logging
 
 from django.db import IntegrityError
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
@@ -54,11 +55,28 @@ class RuleListCreateView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: ValidationRuleSerializer(many=True)},
+        summary="List all validation rules for a dataset",
+    )
     def get(self, request: Request, dataset_id: str) -> Response:
         dataset = _get_dataset_for_user(dataset_id, request.user)
         rules = ValidationRule.objects.filter(dataset=dataset).order_by("created_at")
         return Response(ValidationRuleSerializer(rules, many=True).data)
 
+    @extend_schema(
+        request=ValidationRuleSerializer,
+        responses={201: ValidationRuleSerializer, 409: None},
+        summary="Create a validation rule for a dataset",
+        description=(
+            "Supported rule_type values: `null_check`, `type_check`, `range_check`, `uniqueness_check`.\n\n"
+            "rule_config per type:\n"
+            "- `null_check`: `{}`\n"
+            "- `type_check`: `{\"expected_type\": \"integer|float|string|boolean\"}`\n"
+            "- `range_check`: `{\"min\": 0, \"max\": 100}`\n"
+            "- `uniqueness_check`: `{}`"
+        ),
+    )
     def post(self, request: Request, dataset_id: str) -> Response:
         dataset = _get_dataset_for_user(dataset_id, request.user)
 
@@ -99,10 +117,19 @@ class RuleDetailView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: ValidationRuleSerializer},
+        summary="Retrieve a validation rule",
+    )
     def get(self, request: Request, rule_id: str) -> Response:
         rule = _get_rule_for_user(rule_id, request.user)
         return Response(ValidationRuleSerializer(rule).data)
 
+    @extend_schema(
+        request=RuleUpdateSerializer,
+        responses={200: ValidationRuleSerializer},
+        summary="Update rule_config (column and type are immutable)",
+    )
     def patch(self, request: Request, rule_id: str) -> Response:
         rule = _get_rule_for_user(rule_id, request.user)
         serializer = RuleUpdateSerializer(rule, data=request.data, partial=True)
@@ -110,6 +137,10 @@ class RuleDetailView(APIView):
         serializer.save()
         return Response(ValidationRuleSerializer(rule).data)
 
+    @extend_schema(
+        responses={204: None},
+        summary="Delete a validation rule",
+    )
     def delete(self, request: Request, rule_id: str) -> Response:
         rule = _get_rule_for_user(rule_id, request.user)
         rule_id_log = str(rule.id)
