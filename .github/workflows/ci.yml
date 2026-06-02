@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-backend
     env:
-      SECRET_KEY: test-secret-key
+      SECRET_KEY: test-secret-key-for-ci-only-minimum-32-bytes!!
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
