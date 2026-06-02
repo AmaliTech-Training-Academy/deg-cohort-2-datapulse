@@ -12,6 +12,7 @@ multipart/form-data body. All other views use the default JSON parser.
 
 import logging
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -44,6 +45,35 @@ class DatasetUploadView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
+    @extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "format": "binary",
+                        "description": "CSV or JSON file to upload",
+                    },
+                    "file_title": {
+                        "type": "string",
+                        "description": "Human-readable name (optional)",
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Notes about this dataset (optional)",
+                    },
+                },
+                "required": ["file"],
+            }
+        },
+        responses={201: DatasetResponseSerializer},
+        summary="Upload a CSV or JSON dataset",
+        description=(
+            "Upload a CSV or JSON file for validation. "
+            "File size limit: 10MB. Row limit: 50,000."
+        ),
+    )
     def post(self, request: Request) -> Response:
         serializer = DatasetUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -72,6 +102,10 @@ class DatasetListView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: DatasetResponseSerializer(many=True)},
+        summary="List all datasets for the authenticated user",
+    )
     def get(self, request: Request) -> Response:
         datasets = Dataset.objects.filter(user=request.user).order_by("-created_at")
         serializer = DatasetResponseSerializer(datasets, many=True)
@@ -94,10 +128,18 @@ class DatasetDetailView(APIView):
 
             raise NotFound("Dataset not found.")
 
+    @extend_schema(
+        responses={200: DatasetResponseSerializer},
+        summary="Retrieve a dataset by ID",
+    )
     def get(self, request: Request, dataset_id: str) -> Response:
         dataset = self._get_dataset(dataset_id, request.user)
         return Response(DatasetResponseSerializer(dataset).data)
 
+    @extend_schema(
+        responses={204: None},
+        summary="Delete a dataset and remove its file from disk",
+    )
     def delete(self, request: Request, dataset_id: str) -> Response:
         dataset = self._get_dataset(dataset_id, request.user)
 
