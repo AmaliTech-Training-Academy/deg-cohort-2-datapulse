@@ -22,13 +22,17 @@ class TestForgotPassword:
         assert len(mailoutbox) == 1
         assert mailoutbox[0].to == [verified_user.email]
 
-    def test_reset_email_contains_uid_and_token(self, api_client, verified_user, mailoutbox):
+    def test_reset_email_contains_uid_and_token(
+        self, api_client, verified_user, mailoutbox
+    ):
         api_client.post(URL, {"email": verified_user.email})
         body = mailoutbox[0].body
         assert "uid=" in body
         assert "token=" in body
 
-    def test_reset_link_contains_correct_uid(self, api_client, verified_user, mailoutbox):
+    def test_reset_link_contains_correct_uid(
+        self, api_client, verified_user, mailoutbox
+    ):
         api_client.post(URL, {"email": verified_user.email})
         body = mailoutbox[0].body
         assert str(verified_user.pk) in body

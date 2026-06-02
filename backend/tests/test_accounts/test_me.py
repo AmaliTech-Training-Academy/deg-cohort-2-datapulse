@@ -44,6 +44,8 @@ class TestMeEndpoint:
 
     def test_expired_jwt_returns_401(self, api_client, verified_user):
         token = AccessToken.for_user(verified_user)
-        token.payload["exp"] = int((datetime.now(tz=timezone.utc) - timedelta(hours=1)).timestamp())
+        token.payload["exp"] = int(
+            (datetime.now(tz=timezone.utc) - timedelta(hours=1)).timestamp()
+        )
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {str(token)}")
         assert api_client.get(URL).status_code == 401

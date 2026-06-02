@@ -42,7 +42,9 @@ class RegisterView(APIView):
         request=RegisterSerializer,
         responses={
             201: UserProfileSerializer,
-            400: OpenApiResponse(description="Validation error (e.g. passwords don't match, email taken)"),
+            400: OpenApiResponse(
+                description="Validation error (e.g. passwords don't match, email taken)"
+            ),
         },
     )
     def post(self, request: Request) -> Response:
@@ -77,7 +79,9 @@ class LoginView(TokenObtainPairView):
         summary="Login — get JWT access and refresh tokens",
         responses={
             200: OpenApiResponse(description="JWT tokens + user profile"),
-            400: OpenApiResponse(description="Invalid credentials or email not verified"),
+            400: OpenApiResponse(
+                description="Invalid credentials or email not verified"
+            ),
         },
     )
     def post(self, request, *args, **kwargs):
@@ -135,7 +139,11 @@ class ResendVerificationView(APIView):
         tags=_TAG,
         summary="Resend verification email",
         request=ResendVerificationSerializer,
-        responses={200: OpenApiResponse(description="Email sent if address is registered and unverified")},
+        responses={
+            200: OpenApiResponse(
+                description="Email sent if address is registered and unverified"
+            )
+        },
     )
     def post(self, request: Request) -> Response:
         serializer = ResendVerificationSerializer(data=request.data)
@@ -146,9 +154,13 @@ class ResendVerificationView(APIView):
                 token = make_email_verification_token(user.email)
                 send_verification_email(user, token)
             except Exception:
-                logger.exception("Failed to resend verification email to %s", user.email)
+                logger.exception(
+                    "Failed to resend verification email to %s", user.email
+                )
         return Response(
-            {"message": "If that email is registered and unverified, a new verification link has been sent."}
+            {
+                "message": "If that email is registered and unverified, a new verification link has been sent."
+            }
         )
 
 
@@ -160,7 +172,11 @@ class ForgotPasswordView(APIView):
         tags=_TAG,
         summary="Forgot password — send a password reset link",
         request=ForgotPasswordSerializer,
-        responses={200: OpenApiResponse(description="Reset email sent if address is registered")},
+        responses={
+            200: OpenApiResponse(
+                description="Reset email sent if address is registered"
+            )
+        },
     )
     def post(self, request: Request) -> Response:
         serializer = ForgotPasswordSerializer(data=request.data)
@@ -171,9 +187,13 @@ class ForgotPasswordView(APIView):
                 token = password_reset_token_generator.make_token(user)
                 send_password_reset_email(user, token)
             except Exception:
-                logger.exception("Failed to send password reset email to %s", user.email)
+                logger.exception(
+                    "Failed to send password reset email to %s", user.email
+                )
         return Response(
-            {"message": "If an account with that email exists, a password reset link has been sent."}
+            {
+                "message": "If an account with that email exists, a password reset link has been sent."
+            }
         )
 
 
@@ -186,7 +206,9 @@ class ResetPasswordView(APIView):
         request=ResetPasswordSerializer,
         responses={
             200: OpenApiResponse(description="Password reset successfully"),
-            400: OpenApiResponse(description="Invalid/expired token or passwords don't match"),
+            400: OpenApiResponse(
+                description="Invalid/expired token or passwords don't match"
+            ),
         },
     )
     def post(self, request: Request) -> Response:
@@ -195,5 +217,7 @@ class ResetPasswordView(APIView):
         user = serializer.save()
         logger.info("Password reset for user: %s", user.email)
         return Response(
-            {"message": "Password reset successful. You can now log in with your new password."}
+            {
+                "message": "Password reset successful. You can now log in with your new password."
+            }
         )
