@@ -16,6 +16,9 @@ build/
 .venv/
 venv/
 env/
+Project-Description.docx
+schema.pdf
+.env
 
 # ── Runtime-generated directories ────────────────────────────────────────────
 logs/

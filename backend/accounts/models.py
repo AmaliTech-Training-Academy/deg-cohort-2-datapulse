@@ -1,23 +1,8 @@
 """
 accounts/models.py
-────────────────────────────────────────────────────────────────────────────────
-Custom User model.
-
-Why a custom User model?
-    Django's built-in User uses 'username' as the login field.  DataPulse uses
-    'email' as the primary identifier (as per the project spec and the team's
-    agreed API contract).  AUTH_USER_MODEL must be set to this model BEFORE
-    the first migration is created.
-
-Role field:
-    Two roles are supported — "user" (default) and "admin".
-    Ownership checks use: dataset.uploaded_by == request.user
-    Admin access checks use: request.user.role == "admin"
-
-TODO (implement during your sprint):
-    • Add any additional profile fields your team needs here
-    • Add Meta indexes if you add fields you'll filter by
 """
+
+import uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -25,27 +10,24 @@ from django.db import models
 
 class User(AbstractUser):
     """
-    DataPulse custom user model.
-
-    Extends Django's AbstractUser so we inherit password hashing,
-    is_active, date_joined, last_login, and the full auth machinery
-    without reimplementing them.
-
-    Login field is email (not username).
-    USERNAME_FIELD and REQUIRED_FIELDS are set accordingly.
+    DataPulse custom user.
     """
 
     class Role(models.TextChoices):
         USER = "user", "User"
         ADMIN = "admin", "Admin"
 
-    # Override email to make it unique and required — it's the login field
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
     email = models.EmailField(
         unique=True,
         help_text="Primary identifier used to log in.",
     )
 
-    # Role-based access control
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
@@ -53,9 +35,15 @@ class User(AbstractUser):
         help_text="Controls what the user can access.",
     )
 
-    # Use email as the login identifier instead of username
+    is_email_verified = models.BooleanField(
+        default=False,
+        help_text="True after the user clicks the verification link.",
+    )
+
+    date_joined = None
+    created_at = models.DateTimeField(auto_now_add=True)
+
     USERNAME_FIELD = "email"
-    # username is still required by AbstractUser but not used for login
     REQUIRED_FIELDS = ["username"]
 
     class Meta:
@@ -70,5 +58,4 @@ class User(AbstractUser):
 
     @property
     def is_admin(self) -> bool:
-        """Convenience property — avoids string comparison at call sites."""
         return self.role == self.Role.ADMIN
