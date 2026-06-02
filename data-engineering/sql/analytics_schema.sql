@@ -1,7 +1,8 @@
 -- DataPulse Analytics Schema
 
 CREATE TABLE IF NOT EXISTS dim_datasets (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
+    source_id UUID UNIQUE NOT NULL,
     name VARCHAR(255),
     file_type VARCHAR(10),
     row_count INTEGER,
@@ -9,7 +10,8 @@ CREATE TABLE IF NOT EXISTS dim_datasets (
 );
 
 CREATE TABLE IF NOT EXISTS dim_rules (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
+    source_id UUID UNIQUE NOT NULL,
     name VARCHAR(255),
     field_name VARCHAR(255),
     rule_type VARCHAR(20),

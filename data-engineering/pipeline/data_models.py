@@ -2,6 +2,7 @@
 
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Date
 from sqlalchemy import ForeignKey, create_engine
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base
 
 AnalyticsBase = declarative_base()
@@ -9,20 +10,22 @@ AnalyticsBase = declarative_base()
 
 class DimDataset(AnalyticsBase):
     __tablename__ = "dim_datasets"
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255))
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_id = Column(UUID(as_uuid=True), unique=True, nullable=False)  # maps to datasets.id (uuid)
+    name = Column(String(255))       # maps to datasets.file_name
     file_type = Column(String(10))
     row_count = Column(Integer)
-    uploaded_at = Column(DateTime)
+    uploaded_at = Column(DateTime)   # maps to datasets.created_at
 
 
 class DimRule(AnalyticsBase):
     __tablename__ = "dim_rules"
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255))
-    field_name = Column(String(255))
-    rule_type = Column(String(20))
-    severity = Column(String(10))
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_id = Column(UUID(as_uuid=True), unique=True, nullable=False)  # maps to validation_rules.id (uuid)
+    name = Column(String(255))       # maps to validation_rules.column_name
+    field_name = Column(String(255)) # maps to validation_rules.column_name
+    rule_type = Column(String(20))   # maps to validation_rules.rule_type
+    severity = Column(String(10))    # derived from rule_config json
 
 
 class DimDate(AnalyticsBase):
@@ -39,10 +42,10 @@ class FactQualityCheck(AnalyticsBase):
     id = Column(Integer, primary_key=True, autoincrement=True)
     dataset_id = Column(Integer, ForeignKey("dim_datasets.id"))
     rule_id = Column(Integer, ForeignKey("dim_rules.id"))
-    rule_type = Column(String(20))
-    passed = Column(Boolean)
-    failed_rows = Column(Integer)
-    total_rows = Column(Integer)
-    score = Column(Float)
-    severity = Column(String(10))
-    checked_at = Column(DateTime)
+    rule_type = Column(String(20))   # from validation_rules.rule_type
+    passed = Column(Boolean)         # derived: failure_percentage == 0
+    failed_rows = Column(Integer)    # from rule_findings.rows_failed
+    total_rows = Column(Integer)     # from rule_findings.rows_checked
+    score = Column(Float)            # derived: 1 - (rows_failed / rows_checked)
+    severity = Column(String(10))    # from dim_rules.severity
+    checked_at = Column(DateTime)    # from quality_reports.generated_at
