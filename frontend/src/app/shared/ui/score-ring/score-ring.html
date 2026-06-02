@@ -1,0 +1,39 @@
+<svg
+  [attr.width]="size()"
+  [attr.height]="size()"
+  [attr.viewBox]="'0 0 ' + size() + ' ' + size()"
+>
+  <circle
+    [attr.cx]="ring().cx"
+    [attr.cy]="ring().cy"
+    [attr.r]="ring().r"
+    fill="none"
+    stroke="var(--color-border)"
+    [attr.stroke-width]="strokeWidth()"
+  />
+  <circle
+    class="ring__arc"
+    [attr.cx]="ring().cx"
+    [attr.cy]="ring().cy"
+    [attr.r]="ring().r"
+    fill="none"
+    [attr.stroke]="ring().color"
+    [attr.stroke-width]="strokeWidth()"
+    stroke-linecap="round"
+    [attr.stroke-dasharray]="ring().circ"
+    [attr.stroke-dashoffset]="ring().offset"
+    [attr.transform]="'rotate(-90 ' + ring().cx + ' ' + ring().cy + ')'"
+  />
+  <text
+    [attr.x]="ring().cx"
+    [attr.y]="ring().cy + 8"
+    text-anchor="middle"
+    class="ring__label"
+  >{{ score() }}</text>
+  <text
+    [attr.x]="ring().cx"
+    [attr.y]="ring().cy + 22"
+    text-anchor="middle"
+    class="ring__sublabel"
+  >/ 100</text>
+</svg>
