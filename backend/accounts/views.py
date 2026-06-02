@@ -15,9 +15,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .emails import send_password_reset_email, send_verification_email
-from .throttles import ForgotPasswordThrottle, ResendVerificationThrottle
-from .serializers import (
+from accounts.emails import send_password_reset_email, send_verification_email
+from accounts.throttles import ForgotPasswordThrottle, LoginThrottle, ResendVerificationThrottle
+from accounts.serializers import (
     CustomTokenObtainPairSerializer,
     ForgotPasswordSerializer,
     RegisterSerializer,
@@ -72,6 +72,7 @@ class RegisterView(APIView):
 
 class LoginView(TokenObtainPairView):
     permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
     serializer_class = CustomTokenObtainPairSerializer
 
     @extend_schema(

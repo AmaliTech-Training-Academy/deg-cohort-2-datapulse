@@ -7,6 +7,10 @@ Rates are configured in settings.py → REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
 
 from rest_framework.throttling import AnonRateThrottle
 
+class LoginThrottle(AnonRateThrottle):
+    """5 requests per minute per IP for login."""
+
+    scope = "login"
 
 class ForgotPasswordThrottle(AnonRateThrottle):
     """3 requests per hour per IP for forgot-password."""
