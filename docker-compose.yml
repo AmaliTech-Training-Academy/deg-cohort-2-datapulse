@@ -44,6 +44,23 @@ services:
       retries: 6
       start_period: 20s
 
+  analytics_db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ANALYTICS_DB_NAME:-datapulse_analytics}
+      POSTGRES_USER: ${ANALYTICS_DB_USER:-analytics_user}
+      POSTGRES_PASSWORD: ${ANALYTICS_DB_PASSWORD:-analytics_pass}
+    ports:
+      - "5437:5432"
+    volumes:
+      - analytics_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_DB_USER:-analytics_user} -d ${ANALYTICS_DB_NAME:-datapulse_analytics}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   pipeline:
     profiles: [pipeline]
     build:
@@ -54,8 +71,12 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: "5432"
+      SOURCE_DB_URL: postgresql://datapulse_user:datapulse_pass@db:5432/datapulse
+      TARGET_DB_URL: postgresql://analytics_user:analytics_pass@analytics_db:5432/datapulse_analytics
     depends_on:
       db:
+        condition: service_healthy
+      analytics_db:
         condition: service_healthy
 
   frontend:
@@ -76,3 +97,4 @@ services:
 volumes:
   postgres_data:
   media_data:
+  analytics_data:
