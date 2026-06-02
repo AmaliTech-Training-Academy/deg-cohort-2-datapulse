@@ -1,8 +1,5 @@
 """
 accounts/models.py
-────────────────────────────────────────────────────────────────────────────────
-Custom User model — matches the schema.pdf users table exactly:
-    id uuid, email, password, role, created_at
 """
 
 import uuid
@@ -14,13 +11,6 @@ from django.db import models
 class User(AbstractUser):
     """
     DataPulse custom user.
-
-    Differences from Django's default User:
-    - UUID primary key (matches schema)
-    - email is the login field (not username)
-    - role field for RBAC
-    - is_email_verified for the email confirmation flow
-    - created_at replaces date_joined to match schema naming
     """
 
     class Role(models.TextChoices):
@@ -49,8 +39,7 @@ class User(AbstractUser):
         default=False,
         help_text="True after the user clicks the verification link.",
     )
-
-    # Rename date_joined → created_at to match the schema
+     
     date_joined = None
     created_at = models.DateTimeField(auto_now_add=True)
 
