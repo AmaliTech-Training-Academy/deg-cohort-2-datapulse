@@ -65,10 +65,8 @@ class ReportDetailView(APIView):
 
     def get(self, request: Request, report_id: str) -> Response:
         try:
-            report = (
-                QualityReport.objects
-                .prefetch_related("findings__rule")
-                .get(id=report_id, dataset__user=request.user)
+            report = QualityReport.objects.prefetch_related("findings__rule").get(
+                id=report_id, dataset__user=request.user
             )
         except QualityReport.DoesNotExist:
             raise NotFound("Report not found.")
