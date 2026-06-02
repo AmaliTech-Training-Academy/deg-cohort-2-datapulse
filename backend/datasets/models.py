@@ -34,6 +34,7 @@ class Dataset(TimeStampedModel):
     file_type = models.CharField(max_length=10, choices=FileType.choices)
     file_path = models.CharField(max_length=500)
     row_count = models.IntegerField(null=True, blank=True)
+    columns = models.JSONField(default=list, blank=True)
     file_title = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
 
