@@ -1,7 +1,0 @@
-# This file has been superseded by the root docker-compose.yml.
-# Use the root docker-compose.yml to run the full stack:
-#
-#   From the repo root:
-#   docker compose up --build
-#
-# See the root README.md for full usage instructions.
