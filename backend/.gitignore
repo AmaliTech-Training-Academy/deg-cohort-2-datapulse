@@ -1,0 +1,40 @@
+# ── Secrets — never commit these ─────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.Python
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Runtime-generated directories ────────────────────────────────────────────
+logs/
+media/
+staticfiles/
+
+# ── Testing and coverage ──────────────────────────────────────────────────────
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# ── Type checking ─────────────────────────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+
+# ── IDE / OS files ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
