@@ -1,0 +1,102 @@
+<div class="page">
+  <div class="page__header">
+    <div>
+      <h1 class="page__title">All projects</h1>
+      <p class="page__subtitle">Every project across the organization, monitored continuously</p>
+    </div>
+    <button class="btn-primary" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      New project
+    </button>
+  </div>
+
+  <div class="stats-grid">
+    <app-stat-card label="Total Projects" [value]="stats().total" subtitle="8 shown" />
+    <app-stat-card label="Healthy" [value]="stats().healthy" subtitle="score ≥ 85" valueClass="value--success" />
+    <app-stat-card label="Warning" [value]="stats().warning" subtitle="score 70–84" valueClass="value--warning" />
+    <app-stat-card label="Failing" [value]="stats().failing" subtitle="score < 70" valueClass="value--danger" />
+  </div>
+
+  <div class="table-card">
+    <div class="table-toolbar">
+      <h2 class="table-title">Projects</h2>
+      <div class="filter-tabs">
+        <button
+          class="filter-tab"
+          [class.filter-tab--active]="activeFilter() === 'all'"
+          (click)="setFilter('all')"
+          type="button"
+        >All <span class="tab-count">{{ tabCounts().all }}</span></button>
+        <button
+          class="filter-tab"
+          [class.filter-tab--active]="activeFilter() === 'healthy'"
+          (click)="setFilter('healthy')"
+          type="button"
+        >Healthy <span class="tab-count">{{ tabCounts().healthy }}</span></button>
+        <button
+          class="filter-tab"
+          [class.filter-tab--active]="activeFilter() === 'warning'"
+          (click)="setFilter('warning')"
+          type="button"
+        >Warning <span class="tab-count">{{ tabCounts().warning }}</span></button>
+        <button
+          class="filter-tab"
+          [class.filter-tab--active]="activeFilter() === 'failing'"
+          (click)="setFilter('failing')"
+          type="button"
+        >Failing <span class="tab-count">{{ tabCounts().failing }}</span></button>
+      </div>
+      <div class="search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search projects..."
+          class="search-input"
+          (input)="onSearch($event)"
+        />
+      </div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>PROJECT</th>
+          <th>OWNER</th>
+          <th>DATASETS</th>
+          <th>AVG SCORE</th>
+          <th>STATUS</th>
+          <th>LAST RUN</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (project of filteredProjects(); track project.id) {
+          <tr>
+            <td>
+              <div class="project-cell">
+                <span class="project-name">{{ project.name }}</span>
+              </div>
+            </td>
+            <td class="td-muted">{{ project.ownerName }}</td>
+            <td class="td-center">{{ project.datasetCount }}</td>
+            <td>
+              <span [class]="'score ' + scoreClass(project.avgScore)">{{ project.avgScore }}</span>
+            </td>
+            <td>
+              <app-badge [label]="statusLabel(project.status)" [variant]="statusVariant(project.status)" />
+            </td>
+            <td class="td-muted">{{ relativeTime(project.lastRunAt) }}</td>
+          </tr>
+        }
+        @empty {
+          <tr>
+            <td colspan="6" class="empty-row">No projects match your search.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

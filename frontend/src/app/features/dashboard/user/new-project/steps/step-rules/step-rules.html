@@ -1,0 +1,67 @@
+<div class="step-layout">
+  <div class="step-main">
+    <div class="card">
+      <div class="card__header">
+        <h2 class="card__title">Review validation rules</h2>
+        <p class="card__subtitle">DataPulse read your columns and suggested checks — keep, drop, or adjust each before the first run</p>
+      </div>
+
+      <div class="rules-header">
+        <span class="rules-count">{{ localRules().length }} checks generated from your dataset</span>
+        <button class="btn-add" type="button">+ Add rule</button>
+      </div>
+
+      <div class="rules-list">
+        @for (rule of localRules(); track rule.id) {
+          <div class="rule-item" [class.rule-item--disabled]="!rule.enabled">
+            <div class="rule-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path [attr.d]="ruleTypeIcon(rule.type)" />
+              </svg>
+            </div>
+            <div class="rule-body">
+              <div class="rule-name">
+                {{ rule.name }}
+                <span class="rule-column">{{ rule.column }}</span>
+              </div>
+              <p class="rule-desc">{{ rule.description }}</p>
+            </div>
+            <label class="toggle" [attr.aria-label]="'Toggle ' + rule.name">
+              <input type="checkbox" [checked]="rule.enabled" (change)="toggleRule(rule.id)" />
+              <span class="toggle__track"></span>
+            </label>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <aside class="step-aside">
+    <div class="card">
+      <h3 class="schema-title">Detected schema</h3>
+      <p class="schema-subtitle">{{ columns().length }} columns</p>
+      <div class="columns-list">
+        @for (col of columns(); track col.name) {
+          <div class="column-item">
+            <span class="column-hash">#</span>
+            <span class="column-name">{{ col.name }}</span>
+            <span class="column-type">{{ columnTypeLabel(col.type) }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="step-footer">
+  <button class="btn-back" type="button" (click)="back.emit()">Back</button>
+  <div class="footer-right">
+    <span class="enabled-count">{{ enabledCount() }} of {{ localRules().length }} rules enabled</span>
+    <button class="btn-primary" type="button" (click)="onRunChecks()">
+      Run checks
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </button>
+  </div>
+</div>
