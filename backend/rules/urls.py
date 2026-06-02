@@ -1,18 +1,26 @@
 """
 rules/urls.py
 ────────────────────────────────────────────────────────────────────────────────
-TODO: register your rules URL patterns here.
-This file is already included in api/urls.py.
-
-Example:
-    from django.urls import path
-    from .views import MyListView, MyDetailView
-
-    urlpatterns = [
-        path("",       MyListView.as_view(),   name="rules-list"),
-        path("<int:pk>/", MyDetailView.as_view(), name="rules-detail"),
-    ]
+Rule routes are split across two prefixes in api/urls.py:
+  /api/v1/datasets/<dataset_id>/rules/  → RuleListCreateView
+  /api/v1/rules/<id>/                   → RuleDetailView
 """
 
-# Placeholder — no routes yet.
-urlpatterns: list = []
+from django.urls import path
+
+from .views import RuleDetailView, RuleListCreateView
+
+urlpatterns = [
+    # Nested under datasets — list and create
+    path(
+        "datasets/<uuid:dataset_id>/rules/",
+        RuleListCreateView.as_view(),
+        name="rule-list-create",
+    ),
+    # Standalone — retrieve, update, delete
+    path(
+        "rules/<uuid:rule_id>/",
+        RuleDetailView.as_view(),
+        name="rule-detail",
+    ),
+]

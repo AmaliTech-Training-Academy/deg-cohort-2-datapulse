@@ -1,0 +1,71 @@
+:host {
+  display: block;
+}
+
+.select-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.select-field__label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.select-field__wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.select-field__select {
+  width: 100%;
+  padding: 11px 40px 11px 14px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--color-input-text);
+  background-color: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.select-field__select:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.select-field__select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.select-field--error .select-field__select {
+  border-color: var(--color-danger);
+}
+
+.select-field--error .select-field__select:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.select-field__arrow {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.select-field__error {
+  font-size: 12px;
+  color: var(--color-danger);
+  line-height: 1.4;
+}

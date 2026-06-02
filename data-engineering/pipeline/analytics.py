@@ -1,6 +1,5 @@
 # data-engineering/pipeline/analytics.py
 #
-# DE2 (Odile) owns this file.
 # Python analytics queries for DataPulse quality trends.
 # These functions read from the sample CSV files and produce
 # analytics results that feed the dashboard.
@@ -18,13 +17,21 @@ from datetime import datetime, timedelta
 # Sample data paths 
 SAMPLE_DIR = os.path.join(os.path.dirname(__file__), "..", "sample_data")
 
+# DATASETS = {
+#     "good_data":   os.path.join(SAMPLE_DIR, "good_data.csv"),
+#     "bad_data":    os.path.join(SAMPLE_DIR, "bad_data.csv"),
+#     "mixed_data":  os.path.join(SAMPLE_DIR, "mixed_data.csv"),
+#     "large_clean": os.path.join(SAMPLE_DIR, "large_clean.csv"),
+#     "large_dirty": os.path.join(SAMPLE_DIR, "large_dirty.csv"),
+#     "large_mixed": os.path.join(SAMPLE_DIR, "large_mixed.csv"),
+# }
 DATASETS = {
-    "good_data":   os.path.join(SAMPLE_DIR, "good_data.csv"),
-    "bad_data":    os.path.join(SAMPLE_DIR, "bad_data.csv"),
-    "mixed_data":  os.path.join(SAMPLE_DIR, "mixed_data.csv"),
-    "large_clean": os.path.join(SAMPLE_DIR, "large_clean.csv"),
-    "large_dirty": os.path.join(SAMPLE_DIR, "large_dirty.csv"),
-    "large_mixed": os.path.join(SAMPLE_DIR, "large_mixed.csv"),
+    "clean_data":       os.path.join(SAMPLE_DIR, "clean_data.csv"),
+    "messy_data":       os.path.join(SAMPLE_DIR, "messy_data.csv"),
+    "mixed_data":       os.path.join(SAMPLE_DIR, "mixed_data.csv"),
+    "large_clean_data": os.path.join(SAMPLE_DIR, "large_clean_data.csv"),
+    "large_messy_data": os.path.join(SAMPLE_DIR, "large_messy_data.csv"),
+    "large_mixed_data": os.path.join(SAMPLE_DIR, "large_mixed_data.csv"),
 }
 
 

@@ -1,0 +1,48 @@
+<app-auth-layout subtitle="Create your account in under a minute.">
+  <form [formGroup]="form" (ngSubmit)="submit()" class="auth-form" novalidate>
+    @if (error()) {
+      <div class="auth-alert" role="alert">{{ error() }}</div>
+    }
+
+    <div class="auth-form__row">
+      <app-input
+        label="First name"
+        type="text"
+        placeholder="Jordan"
+        autocomplete="given-name"
+        formControlName="firstName"
+      />
+      <app-input
+        label="Last name"
+        type="text"
+        placeholder="Lee"
+        autocomplete="family-name"
+        formControlName="lastName"
+      />
+    </div>
+
+    <app-input
+      label="Email"
+      type="email"
+      placeholder="jordan@company.com"
+      autocomplete="email"
+      formControlName="email"
+    />
+
+    <app-input
+      label="Password"
+      type="password"
+      placeholder="••••••••"
+      autocomplete="new-password"
+      formControlName="password"
+    />
+
+    <app-button type="submit" [loading]="loading()" [fullWidth]="true">
+      Create account
+    </app-button>
+
+    <p class="auth-footer">
+      Already have an account? <a routerLink="/login">Sign in</a>
+    </p>
+  </form>
+</app-auth-layout>
