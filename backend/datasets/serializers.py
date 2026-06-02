@@ -1,26 +1,56 @@
 """
 datasets/serializers.py
 ────────────────────────────────────────────────────────────────────────────────
-TODO: define your datasets serializers here.
-
-Serializers validate incoming request data and control what fields are
-returned in responses.
-
-Pattern used in this project:
-    • One serializer per logical operation (Create, Update, List, Detail)
-    • Never expose internal fields like file_path in responses
-    • Use read_only_fields for fields the client should not be able to set
-
-Example:
-
-    from rest_framework import serializers
-    from .models import MyModel
-
-    class MyModelSerializer(serializers.ModelSerializer):
-        class Meta:
-            model  = MyModel
-            fields = ["id", "name", "created_at"]
-            read_only_fields = ["id", "created_at"]
+DatasetUploadSerializer  — validates the multipart upload request
+DatasetResponseSerializer — shapes the API response (never exposes file_path)
 """
 
-# Placeholder — no serializers implemented yet.
+from rest_framework import serializers
+
+from .models import Dataset
+
+
+class DatasetUploadSerializer(serializers.Serializer):
+    """
+    Validates the multipart/form-data upload request.
+
+    file        — required, the CSV or JSON file
+    file_title  — optional human-readable name
+    description — optional notes
+    """
+
+    file = serializers.FileField(
+        help_text="CSV or JSON file. Maximum 10 MB, 50,000 rows.",
+    )
+    file_title = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+
+class DatasetResponseSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer for dataset API responses.
+    file_path is intentionally excluded — it is an internal server path.
+    """
+
+    class Meta:
+        model = Dataset
+        fields = [
+            "id",
+            "file_name",
+            "file_type",
+            "file_title",
+            "description",
+            "row_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
