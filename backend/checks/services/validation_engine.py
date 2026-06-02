@@ -174,9 +174,11 @@ class ValidationEngine:
         series = self.df[col]
 
         if expected_type == "integer":
-            bad_mask = series.apply(
-                lambda x: pd.isnull(x) or not str(x).strip().lstrip("-").isdigit()
-            )
+            numeric = pd.to_numeric(series, errors="coerce")
+            # Reject nulls, non-numeric strings, and numbers with a fractional part
+            # (e.g. 3.5). Whole-number floats like 3.0 and scientific notation
+            # like 1e3 are accepted because they represent exact integers.
+            bad_mask = numeric.isnull() | (numeric % 1 != 0)
         elif expected_type == "float":
             numeric = pd.to_numeric(series, errors="coerce")
             bad_mask = numeric.isnull() & series.notna()
