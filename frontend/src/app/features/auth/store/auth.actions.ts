@@ -31,3 +31,6 @@ export const forgotPasswordFailure = createAction(
 );
 
 export const logout = createAction('[Auth] Logout');
+
+export const restoreSession = createAction('[Auth] Restore Session', props<{ user: User }>());
+export const restoreSessionEmpty = createAction('[Auth] Restore Session Empty');

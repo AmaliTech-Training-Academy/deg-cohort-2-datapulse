@@ -14,3 +14,5 @@ export const selectForgotPasswordSent = createSelector(
   selectAuthState,
   (state) => state.forgotPasswordSent,
 );
+
+export const selectUserRole = createSelector(selectAuthState, (state) => state.user?.role ?? null);

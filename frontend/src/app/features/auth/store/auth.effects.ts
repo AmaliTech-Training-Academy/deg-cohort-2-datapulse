@@ -1,11 +1,11 @@
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { Actions, createEffect, ofType } from '@ngrx/effects';
+import { Actions, createEffect, ofType, ROOT_EFFECTS_INIT } from '@ngrx/effects';
 import { catchError, map, switchMap, tap } from 'rxjs/operators';
 import { of } from 'rxjs';
 import * as AuthActions from './auth.actions';
 import { AuthService } from '../auth.service';
-import { AUTH_TOKEN_KEY } from '../auth.models';
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY, User } from '../auth.models';
 
 export const loginEffect = createEffect(
   (actions$ = inject(Actions), authService = inject(AuthService)) =>
@@ -53,7 +53,10 @@ export const saveTokenEffect = createEffect(
   (actions$ = inject(Actions)) =>
     actions$.pipe(
       ofType(AuthActions.loginSuccess, AuthActions.registerSuccess),
-      tap(({ token }) => localStorage.setItem(AUTH_TOKEN_KEY, token)),
+      tap(({ token, user }) => {
+        localStorage.setItem(AUTH_TOKEN_KEY, token);
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+      }),
     ),
   { functional: true, dispatch: false },
 );
@@ -62,9 +65,33 @@ export const redirectAfterAuthEffect = createEffect(
   (actions$ = inject(Actions), router = inject(Router)) =>
     actions$.pipe(
       ofType(AuthActions.loginSuccess, AuthActions.registerSuccess),
-      tap(() => router.navigate(['/dashboard'])),
+      tap(({ user }) => {
+        const url = user.role === 'admin' ? '/dashboard/overview' : '/dashboard/projects';
+        router.navigate([url]);
+      }),
     ),
   { functional: true, dispatch: false },
+);
+
+export const initAuthEffect = createEffect(
+  (actions$ = inject(Actions)) =>
+    actions$.pipe(
+      ofType(ROOT_EFFECTS_INIT),
+      map(() => {
+        const token = localStorage.getItem(AUTH_TOKEN_KEY);
+        const userJson = localStorage.getItem(AUTH_USER_KEY);
+        if (token && userJson) {
+          try {
+            const user = JSON.parse(userJson) as User;
+            return AuthActions.restoreSession({ user });
+          } catch {
+            return AuthActions.restoreSessionEmpty();
+          }
+        }
+        return AuthActions.restoreSessionEmpty();
+      }),
+    ),
+  { functional: true },
 );
 
 export const logoutEffect = createEffect(
@@ -73,6 +100,7 @@ export const logoutEffect = createEffect(
       ofType(AuthActions.logout),
       tap(() => {
         localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_USER_KEY);
         router.navigate(['/login']);
       }),
     ),
