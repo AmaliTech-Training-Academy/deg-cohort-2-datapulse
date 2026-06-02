@@ -13,7 +13,7 @@ test.describe('Register page', () => {
     await expect(page.getByLabel(/first name/i)).toBeVisible();
     await expect(page.getByLabel(/last name/i)).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
+    await expect(page.locator('input[type="password"]')).toBeVisible();
     await expect(page.getByRole('button', { name: /create account/i })).toBeVisible();
   });
 
@@ -30,7 +30,7 @@ test.describe('Register page', () => {
     await page.getByLabel(/first name/i).fill('Jordan');
     await page.getByLabel(/last name/i).fill('Lee');
     await page.getByLabel(/email/i).fill('jordan@example.com');
-    await page.getByLabel(/password/i).fill('short');
+    await page.locator('input[type="password"]').fill('short');
     await page.getByRole('button', { name: /create account/i }).click();
     await expect(page.getByText(/minimum 8 characters/i)).toBeVisible();
   });
@@ -47,7 +47,7 @@ test.describe('Register page', () => {
     await page.getByLabel(/first name/i).fill('Jordan');
     await page.getByLabel(/last name/i).fill('Lee');
     await page.getByLabel(/email/i).fill('existing@example.com');
-    await page.getByLabel(/password/i).fill('password123');
+    await page.locator('input[type="password"]').fill('password123');
     await page.getByRole('button', { name: /create account/i }).click();
 
     await expect(page.getByRole('alert')).toBeVisible();
@@ -66,7 +66,7 @@ test.describe('Register page', () => {
     await page.getByLabel(/first name/i).fill('New');
     await page.getByLabel(/last name/i).fill('User');
     await page.getByLabel(/email/i).fill('newuser@example.com');
-    await page.getByLabel(/password/i).fill('securepassword');
+    await page.locator('input[type="password"]').fill('securepassword');
     await page.getByRole('button', { name: /create account/i }).click();
 
     await page.waitForURL('**/dashboard');
