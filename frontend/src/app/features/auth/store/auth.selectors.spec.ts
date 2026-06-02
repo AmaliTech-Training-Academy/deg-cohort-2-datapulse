@@ -64,7 +64,9 @@ describe('Auth Selectors', () => {
     });
 
     it('returns true when password reset email was sent', () => {
-      expect(selectors.selectForgotPasswordSent(makeState({ forgotPasswordSent: true }))).toBe(true);
+      expect(selectors.selectForgotPasswordSent(makeState({ forgotPasswordSent: true }))).toBe(
+        true,
+      );
     });
   });
 });

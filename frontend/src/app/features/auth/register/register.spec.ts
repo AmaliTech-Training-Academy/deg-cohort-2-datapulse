@@ -56,7 +56,11 @@ describe('RegisterComponent', () => {
     fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     expect(dispatchSpy).toHaveBeenCalledWith(
-      AuthActions.register({ name: 'Jordan Lee', email: 'jordan@example.com', password: 'secure123' }),
+      AuthActions.register({
+        name: 'Jordan Lee',
+        email: 'jordan@example.com',
+        password: 'secure123',
+      }),
     );
   });
 
