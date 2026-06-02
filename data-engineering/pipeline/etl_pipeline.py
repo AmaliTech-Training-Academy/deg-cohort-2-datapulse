@@ -1,271 +1,289 @@
-"""ETL Pipeline for DataPulse analytics."""
+
+
+"""ETL Pipeline for DataPulse analytics (DB → DB version)."""
 
 import os
-from datetime import datetime, date
+from datetime import datetime
+
+import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-import pandas as pd
 
-from models import AnalyticsBase, DimDataset, DimRule, DimDate, FactQualityCheck
+from data_models import (
+    AnalyticsBase,
+    DimDataset,
+    DimRule,
+    DimDate,
+    FactQualityCheck,
+    FactTrendMetric,
+)
 
 load_dotenv()
 
 
 class ETLPipeline:
-    def __init__(self, source_url=None, target_url=None):
-        self.source_url = source_url or os.getenv("SOURCE_DB_URL",
-            "postgresql://datapulse:datapulse@localhost:5432/datapulse")
-        self.target_url = target_url or os.getenv("TARGET_DB_URL",
-            self.source_url)
+    def __init__(self, target_url=None):
+
+        # ─────────────────────────────────────────────
+        # SOURCE DB (origin system)
+        # ─────────────────────────────────────────────
+        self.source_url = os.getenv("SOURCE_DB_URL")
+        if not self.source_url:
+            raise ValueError("SOURCE_DB_URL is not set in .env")
+
         self.source_engine = create_engine(self.source_url)
+
+        # ─────────────────────────────────────────────
+        # TARGET DB (analytics warehouse)
+        # ─────────────────────────────────────────────
+        self.target_url = target_url or os.getenv("TARGET_DB_URL")
+        if not self.target_url:
+            raise ValueError("TARGET_DB_URL is not set in .env")
+
         self.target_engine = create_engine(self.target_url)
-        self.raw_data = None
+
+        # raw data
+        self.raw_datasets = None
+        self.raw_rules = None
+        self.raw_reports = None
+        self.raw_findings = None
+        self.raw_trends = None
+
         self.transformed_data = None
 
-        # Ensure analytics tables exist in target DB
+        # create analytics schema if not exists
         AnalyticsBase.metadata.create_all(self.target_engine)
 
-    # ------------------------------------------------------------------
-    # EXTRACT
-    # ------------------------------------------------------------------
-
+    # ─────────────────────────────────────────────
+    # EXTRACT (DIRECT DB READ)
+    # ─────────────────────────────────────────────
     def extract(self):
-        """Extract check results from app DB using the source schema."""
-        query = """
-            SELECT
-                rf.id,
-                rf.report_id,
-                rf.rule_id,
-                rf.rows_checked,
-                rf.rows_failed,
-                rf.failure_percentage,
-                rf.error_details,
-                vr.rule_type,
-                vr.column_name    AS field_name,
-                vr.rule_config,
-                vr.dataset_id     AS vr_dataset_id,
-                d.id              AS dataset_uuid,
-                d.file_name       AS dataset_name,
-                d.file_type,
-                d.row_count,
-                d.created_at      AS dataset_created_at,
-                qr.generated_at   AS checked_at
-            FROM rule_findings rf
-            JOIN validation_rules vr  ON rf.rule_id    = vr.id
-            JOIN quality_reports  qr  ON rf.report_id  = qr.id
-            JOIN datasets         d   ON qr.dataset_id = d.id
-        """
-        self.raw_data = pd.read_sql(query, self.source_engine)
-        print(f"Extracted {len(self.raw_data)} records")
-        return self.raw_data
+        """Extract data from SOURCE PostgreSQL DB."""
 
-    # ------------------------------------------------------------------
+        self.raw_datasets = pd.read_sql("SELECT * FROM datasets", self.source_engine)
+
+        self.raw_rules = pd.read_sql(
+            "SELECT * FROM validation_rules",
+            self.source_engine
+        )
+
+        self.raw_reports = pd.read_sql(
+            "SELECT * FROM quality_reports",
+            self.source_engine
+        )
+
+        self.raw_findings = pd.read_sql(
+            "SELECT * FROM rule_findings",
+            self.source_engine
+        )
+
+        self.raw_trends = pd.read_sql(
+            "SELECT * FROM trend_metrics",
+            self.source_engine
+        )
+
+        print("Extract completed:")
+        print(f"- datasets: {len(self.raw_datasets)}")
+        print(f"- rules: {len(self.raw_rules)}")
+        print(f"- reports: {len(self.raw_reports)}")
+        print(f"- findings: {len(self.raw_findings)}")
+        print(f"- trends: {len(self.raw_trends)}")
+
+        return (
+            self.raw_findings,
+            self.raw_rules,
+            self.raw_reports,
+            self.raw_datasets,
+            self.raw_trends,
+        )
+
+    # ─────────────────────────────────────────────
     # TRANSFORM
-    # ------------------------------------------------------------------
-
+    # ─────────────────────────────────────────────
     def transform(self):
-        """Transform extracted data into analytics-ready structures."""
-        if self.raw_data is None:
-            print("No data to transform. Run extract() first.")
-            return None
 
-        df = self.raw_data.copy()
+        df = (
+            self.raw_findings
+            .merge(self.raw_rules, left_on="rule_id", right_on="id", suffixes=("", "_rule"))
+            .merge(self.raw_reports, left_on="report_id", right_on="id", suffixes=("", "_report"))
+            .merge(self.raw_datasets, left_on="dataset_id", right_on="id", suffixes=("", "_dataset"))
+        )
 
-        # --- Derive pass/fail and quality score ----------------------
+        # ── derived metrics (BEFORE any renames) ─────
         df["passed"] = df["failure_percentage"] == 0
-        df["score"]  = (1 - df["failure_percentage"] / 100).clip(0, 1)
+        df["score"] = (1 - df["failure_percentage"] / 100).clip(0, 1)
 
-        # --- Extract severity from rule_config JSON ------------------
-        # rule_config is a JSON column; severity key may or may not exist
         def extract_severity(cfg):
             if isinstance(cfg, dict):
                 return cfg.get("severity", "medium")
             return "medium"
 
         df["severity"] = df["rule_config"].apply(extract_severity)
+        df["checked_at"] = pd.to_datetime(df["generated_at"], utc=True)
 
-        # --- Build dim_datasets (unique datasets) --------------------
+        # ── DIM DATASETS (BEFORE rename, using original col names) ───
         dim_datasets = (
-            df[["dataset_uuid", "dataset_name", "file_type", "row_count", "dataset_created_at"]]
-            .drop_duplicates(subset="dataset_uuid")
+            df[["dataset_id", "file_name", "file_type", "row_count", "created_at_dataset"]]
+            .drop_duplicates(subset="dataset_id")
             .rename(columns={
-                "dataset_uuid":     "source_id",
-                "dataset_name":     "name",
-                "dataset_created_at": "uploaded_at",
+                "dataset_id": "source_id",
+                "file_name": "name",
+                "created_at_dataset": "uploaded_at"
             })
         )
 
-        # --- Build dim_rules (unique rules) --------------------------
+        # ── DIM RULES (BEFORE rename, using original col names) ──────
         dim_rules = (
-            df[["rule_id", "field_name", "rule_type", "severity"]]
+            df[["rule_id", "column_name", "rule_type", "severity"]]
             .drop_duplicates(subset="rule_id")
-            .rename(columns={"rule_id": "source_id"})
-        )
-        dim_rules["name"] = dim_rules["field_name"]  # human-readable name
-
-        # --- Build dim_date (all distinct dates in checked_at) -------
-        distinct_dates = pd.to_datetime(df["checked_at"]).dt.date.unique()
-        dim_date_rows = []
-        for d_val in distinct_dates:
-            dt = datetime.combine(d_val, datetime.min.time())
-            dim_date_rows.append({
-                "date_key":    int(dt.strftime("%Y%m%d")),
-                "full_date":   d_val,
-                "day_of_week": dt.weekday(),   # 0=Monday … 6=Sunday
-                "month":       dt.month,
-                "year":        dt.year,
+            .rename(columns={
+                "rule_id": "source_id",
+                "column_name": "field_name",
             })
-        dim_date = pd.DataFrame(dim_date_rows)
+        )
+        dim_rules["name"] = dim_rules["field_name"]
 
-        # --- Build fact_quality_checks -------------------------------
-        fact = df[[
-            "dataset_uuid", "rule_id", "rule_type",
+        # ── DIM DATE ──────────────────────────────────
+        dates = df["checked_at"].dt.date.unique()
+
+        dim_date = pd.DataFrame([
+            {
+                "date_key": int(d.strftime("%Y%m%d")),
+                "full_date": d,
+                "day_of_week": datetime.combine(d, datetime.min.time()).weekday(),
+                "month": d.month,
+                "year": d.year,
+            }
+            for d in dates
+        ])
+
+        # ── FACT QUALITY CHECKS ───────────────────────
+        fact_checks = df[[
+            "dataset_id", "rule_id", "rule_type",
             "passed", "rows_failed", "rows_checked",
-            "score", "severity", "checked_at",
+            "score", "severity", "checked_at"
         ]].rename(columns={
-            "rows_failed":   "failed_rows",
-            "rows_checked":  "total_rows",
+            "rows_failed": "failed_rows",
+            "rows_checked": "total_rows"
         })
+
+        # ── FACT TREND ────────────────────────────────
+        fact_trends = self.raw_trends.copy()
+        fact_trends["snapshot_date"] = pd.to_datetime(
+            fact_trends["snapshot_date"]
+        ).dt.date
+
+        fact_trends = fact_trends.rename(columns={"id": "source_id"})
 
         self.transformed_data = {
             "dim_datasets": dim_datasets,
-            "dim_rules":    dim_rules,
-            "dim_date":     dim_date,
-            "fact":         fact,
+            "dim_rules": dim_rules,
+            "dim_date": dim_date,
+            "fact_checks": fact_checks,
+            "fact_trends": fact_trends,
         }
 
-        print(
-            f"Transform complete — "
-            f"{len(dim_datasets)} datasets, "
-            f"{len(dim_rules)} rules, "
-            f"{len(dim_date)} dates, "
-            f"{len(fact)} fact rows"
-        )
+        print("Transform completed")
         return self.transformed_data
 
-    # ------------------------------------------------------------------
+    # ─────────────────────────────────────────────
     # LOAD
-    # ------------------------------------------------------------------
-
+    # ─────────────────────────────────────────────
     def load(self):
-        """Load transformed data into analytics tables."""
-        if self.transformed_data is None:
-            print("No data to load. Run transform() first.")
-            return
 
-        Session = sessionmaker(bind=self.target_engine)
-        session = Session()
+        session = sessionmaker(bind=self.target_engine)()
 
         try:
-            # ---- 1. Upsert dim_datasets -----------------------------
-            dataset_source_id_to_pk = {}
-            for _, row in self.transformed_data["dim_datasets"].iterrows():
-                existing = (
-                    session.query(DimDataset)
-                    .filter_by(source_id=row["source_id"])
-                    .first()
+            # clear facts
+            session.execute(text("TRUNCATE fact_quality_checks RESTART IDENTITY"))
+            session.execute(text("TRUNCATE fact_trend_metrics RESTART IDENTITY"))
+
+            # ── DIM DATASETS
+            dataset_map = {}
+            for _, r in self.transformed_data["dim_datasets"].iterrows():
+                obj = DimDataset(
+                    source_id=r["source_id"],
+                    name=r["name"],
+                    file_type=r["file_type"],
+                    row_count=r["row_count"],
+                    uploaded_at=r["uploaded_at"],
                 )
-                if existing:
-                    existing.name       = row["name"]
-                    existing.file_type  = row["file_type"]
-                    existing.row_count  = row["row_count"]
-                    existing.uploaded_at = row["uploaded_at"]
-                    obj = existing
-                else:
-                    obj = DimDataset(
-                        source_id   = row["source_id"],
-                        name        = row["name"],
-                        file_type   = row["file_type"],
-                        row_count   = row["row_count"],
-                        uploaded_at = row["uploaded_at"],
-                    )
-                    session.add(obj)
+                session.add(obj)
                 session.flush()
-                dataset_source_id_to_pk[str(row["source_id"])] = obj.id
+                dataset_map[r["source_id"]] = obj.id
 
-            # ---- 2. Upsert dim_rules --------------------------------
-            rule_source_id_to_pk = {}
-            for _, row in self.transformed_data["dim_rules"].iterrows():
-                existing = (
-                    session.query(DimRule)
-                    .filter_by(source_id=row["source_id"])
-                    .first()
+            # ── DIM RULES
+            rule_map = {}
+            for _, r in self.transformed_data["dim_rules"].iterrows():
+                obj = DimRule(
+                    source_id=r["source_id"],
+                    name=r["name"],
+                    field_name=r["field_name"],
+                    rule_type=r["rule_type"],
+                    severity=r["severity"],
                 )
-                if existing:
-                    existing.name       = row["name"]
-                    existing.field_name = row["field_name"]
-                    existing.rule_type  = row["rule_type"]
-                    existing.severity   = row["severity"]
-                    obj = existing
-                else:
-                    obj = DimRule(
-                        source_id  = row["source_id"],
-                        name       = row["name"],
-                        field_name = row["field_name"],
-                        rule_type  = row["rule_type"],
-                        severity   = row["severity"],
-                    )
-                    session.add(obj)
+                session.add(obj)
                 session.flush()
-                rule_source_id_to_pk[str(row["source_id"])] = obj.id
+                rule_map[r["source_id"]] = obj.id
 
-            # ---- 3. Upsert dim_date ---------------------------------
-            for _, row in self.transformed_data["dim_date"].iterrows():
-                existing = session.get(DimDate, int(row["date_key"]))
-                if not existing:
-                    session.add(DimDate(
-                        date_key    = int(row["date_key"]),
-                        full_date   = row["full_date"],
-                        day_of_week = int(row["day_of_week"]),
-                        month       = int(row["month"]),
-                        year        = int(row["year"]),
-                    ))
+            # ── DIM DATE
+            for _, r in self.transformed_data["dim_date"].iterrows():
+                session.merge(DimDate(**r.to_dict()))
 
-            # ---- 4. Insert fact_quality_checks ----------------------
-            for _, row in self.transformed_data["fact"].iterrows():
-                dataset_pk = dataset_source_id_to_pk.get(str(row["dataset_uuid"]))
-                rule_pk    = rule_source_id_to_pk.get(str(row["rule_id"]))
+            # ── FACT QUALITY
+            for _, r in self.transformed_data["fact_checks"].iterrows():
 
-                if dataset_pk is None or rule_pk is None:
-                    print(f"Skipping fact row — missing FK for dataset={row['dataset_uuid']} rule={row['rule_id']}")
+                d_id = dataset_map.get(r["dataset_id"])
+                r_id = rule_map.get(r["rule_id"])
+
+                if not d_id or not r_id:
                     continue
 
                 session.add(FactQualityCheck(
-                    dataset_id = dataset_pk,
-                    rule_id    = rule_pk,
-                    rule_type  = row["rule_type"],
-                    passed     = bool(row["passed"]),
-                    failed_rows = int(row["failed_rows"]),
-                    total_rows  = int(row["total_rows"]),
-                    score      = float(row["score"]),
-                    severity   = row["severity"],
-                    checked_at = row["checked_at"],
+                    dataset_id=d_id,
+                    rule_id=r_id,
+                    rule_type=r["rule_type"],
+                    passed=bool(r["passed"]),
+                    failed_rows=r["failed_rows"],
+                    total_rows=r["total_rows"],
+                    score=float(r["score"]),
+                    severity=r["severity"],
+                    checked_at=r["checked_at"],
+                ))
+
+            # ── FACT TREND
+            for _, r in self.transformed_data["fact_trends"].iterrows():
+                d_id = dataset_map.get(r["dataset_id"])
+                if not d_id:
+                    continue
+
+                session.add(FactTrendMetric(
+                    dataset_id=d_id,
+                    source_id=r["source_id"],
+                    snapshot_date=r["snapshot_date"],
+                    aggregated_score=int(r["aggregated_score"]),
                 ))
 
             session.commit()
-            print("Load complete — all records committed.")
+            print("Load completed successfully")
 
         except Exception as e:
             session.rollback()
-            print(f"Load failed, rolled back: {e}")
-            raise
+            raise e
         finally:
             session.close()
 
-    # ------------------------------------------------------------------
+    # ─────────────────────────────────────────────
     # RUN
-    # ------------------------------------------------------------------
-
+    # ─────────────────────────────────────────────
     def run(self):
-        """Run the full ETL pipeline."""
         print(f"ETL started at {datetime.now()}")
         self.extract()
         self.transform()
         self.load()
-        print(f"ETL completed at {datetime.now()}")
+        print(f"ETL finished at {datetime.now()}")
 
 
 if __name__ == "__main__":
-    pipeline = ETLPipeline()
-    pipeline.run()
+    ETLPipeline().run()
