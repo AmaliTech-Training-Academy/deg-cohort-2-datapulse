@@ -18,7 +18,7 @@ const config: Config = {
   collectCoverageFrom: [
     'src/app/**/*.ts',
     '!src/app/**/*.routes.ts',
-    '!src/app/**/*.model.ts',
+    '!src/app/**/*.models.ts',
     '!src/main.ts',
   ],
   coverageReporters: ['text', 'lcov'],
