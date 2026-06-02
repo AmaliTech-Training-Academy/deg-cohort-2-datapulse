@@ -50,8 +50,7 @@ class TestVerifyEmail:
     ):
         # First use succeeds
         api_client.post(VERIFY_URL, {"token": email_verification_token})
-    
-    
+
         response = api_client.post(VERIFY_URL, {"token": email_verification_token})
         assert response.status_code == 400
 

@@ -1,11 +1,6 @@
 """
 accounts/tokens.py
-────────────────────────────────────────────────────────────────────────────────
 Stateless token helpers for email verification and password reset.
-
-Email verification uses django.core.signing so no DB table is needed.
-Password reset uses Django's PasswordResetTokenGenerator which invalidates
-the token automatically after the password is changed.
 """
 
 import logging

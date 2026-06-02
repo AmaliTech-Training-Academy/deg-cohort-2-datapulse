@@ -1,6 +1,5 @@
 """
 accounts/emails.py
-────────────────────────────────────────────────────────────────────────────────
 Plain-text transactional emails for authentication flows.
 
 In development (DEBUG=True) emails are printed to the console.

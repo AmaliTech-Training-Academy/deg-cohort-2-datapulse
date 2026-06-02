@@ -39,7 +39,7 @@ class User(AbstractUser):
         default=False,
         help_text="True after the user clicks the verification link.",
     )
-     
+
     date_joined = None
     created_at = models.DateTimeField(auto_now_add=True)
 
