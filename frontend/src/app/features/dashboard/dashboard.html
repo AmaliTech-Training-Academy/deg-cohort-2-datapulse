@@ -1,1 +1,9 @@
-<h1>Dashboard</h1>
+<div class="layout">
+  <app-sidebar [role]="user()?.role ?? 'user'" />
+  <div class="layout__main">
+    <app-topbar [user]="user()" />
+    <main class="layout__content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

@@ -1,0 +1,93 @@
+@if (loading()) {
+  <div class="loading">Loading project…</div>
+} @else if (project(); as p) {
+  <div class="page">
+    <nav class="breadcrumb">
+      <a routerLink="/dashboard/projects">Projects</a>
+      <span class="breadcrumb__sep">›</span>
+      <span>{{ p.name }}</span>
+    </nav>
+
+    <div class="page__header">
+      <div>
+        <h1 class="page__title">{{ p.name }}</h1>
+        <p class="page__subtitle">{{ p.datasetCount }} datasets · {{ p.activeRulesCount }} active rules · last run {{ relativeTime(p.lastRunAt) }}</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-secondary" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Upload version
+        </button>
+        <button class="btn-primary" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Run checks
+        </button>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <app-stat-card label="Avg Score" [value]="p.avgScore" subtitle="" [valueClass]="scoreClass(p.avgScore)" />
+      <app-stat-card label="Datasets" [value]="p.datasetCount" subtitle="on latest version" />
+      <app-stat-card label="Active Rules" [value]="p.activeRulesCount" [subtitle]="'across ' + p.datasetCount + ' datasets'" />
+      <app-stat-card label="Failing Rows" [value]="totalFailingRows().toLocaleString()" subtitle="0.4% of total" valueClass="value--danger" />
+    </div>
+
+    <div class="card">
+      <div class="card__header">
+        <h2 class="card__title">Datasets</h2>
+        <p class="card__subtitle">Latest version of each file in this project</p>
+        <div style="flex:1"></div>
+        <button class="btn-secondary" type="button">Manage rules</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>FILE</th>
+            <th>VERSION</th>
+            <th>ROWS</th>
+            <th>SCORE</th>
+            <th>STATUS</th>
+            <th>UPLOADED</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (dataset of p.datasets; track dataset.id) {
+            <tr class="dataset-row" [routerLink]="['/dashboard/projects', p.id, dataset.id]">
+              <td>
+                <div class="file-cell">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="file-icon">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  {{ dataset.name }}
+                </div>
+              </td>
+              <td>
+                <span class="version-badge">{{ dataset.version }}</span>
+              </td>
+              <td class="td-muted">{{ dataset.rows.toLocaleString() }}</td>
+              <td>
+                <span [class]="'score ' + scoreClass(dataset.score)">{{ dataset.score }}</span>
+              </td>
+              <td>
+                <app-badge [label]="statusLabel(dataset.status)" [variant]="statusVariant(dataset.status)" />
+              </td>
+              <td class="td-muted">{{ relativeTime(dataset.uploadedAt) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2 class="card__title" style="margin-bottom: 4px;">Score trend</h2>
+      <p class="card__subtitle" style="margin-bottom: 16px;">Average quality score across versions of {{ p.datasets[0]?.name ?? 'datasets' }}</p>
+      <app-trend-chart [points]="p.scoreTrend" [height]="180" />
+    </div>
+  </div>
+} @else {
+  <div class="loading">Project not found.</div>
+}
