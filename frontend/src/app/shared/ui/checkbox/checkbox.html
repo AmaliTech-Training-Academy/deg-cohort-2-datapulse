@@ -1,0 +1,19 @@
+<label class="checkbox" [class.checkbox--disabled]="isDisabled" [for]="inputId">
+  <input
+    [id]="inputId"
+    type="checkbox"
+    class="checkbox__input"
+    [checked]="checked"
+    [disabled]="isDisabled"
+    (change)="handleChange($event)"
+  />
+  <span class="checkbox__box" aria-hidden="true">
+    <svg class="checkbox__check" width="11" height="9" viewBox="0 0 11 9" fill="none">
+      <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </span>
+  @if (label()) {
+    <span class="checkbox__label">{{ label() }}</span>
+  }
+  <ng-content />
+</label>
