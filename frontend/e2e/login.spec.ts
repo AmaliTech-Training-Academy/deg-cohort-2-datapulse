@@ -11,7 +11,7 @@ test.describe('Login page', () => {
 
   test('renders the email and password fields and submit button', async ({ page }) => {
     await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
+    await expect(page.locator('input[type="password"]')).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
   });
 
@@ -27,7 +27,7 @@ test.describe('Login page', () => {
 
   test('shows email validation error for an invalid email', async ({ page }) => {
     await page.getByLabel(/email/i).fill('not-an-email');
-    await page.getByLabel(/password/i).fill('password123');
+    await page.locator('input[type="password"]').fill('password123');
     await page.getByRole('button', { name: /sign in/i }).click();
     await expect(page.getByText(/enter a valid email/i)).toBeVisible();
   });
@@ -42,7 +42,7 @@ test.describe('Login page', () => {
     );
 
     await page.getByLabel(/email/i).fill('wrong@example.com');
-    await page.getByLabel(/password/i).fill('wrongpassword');
+    await page.locator('input[type="password"]').fill('wrongpassword');
     await page.getByRole('button', { name: /sign in/i }).click();
 
     await expect(page.getByRole('alert')).toBeVisible();
@@ -59,7 +59,7 @@ test.describe('Login page', () => {
     );
 
     await page.getByLabel(/email/i).fill('user@example.com');
-    await page.getByLabel(/password/i).fill('correctpassword');
+    await page.locator('input[type="password"]').fill('correctpassword');
     await page.getByRole('button', { name: /sign in/i }).click();
 
     await page.waitForURL('**/dashboard');
