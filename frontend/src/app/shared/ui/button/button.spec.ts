@@ -15,7 +15,9 @@ describe('ButtonComponent', () => {
   });
 
   it('applies danger variant class', async () => {
-    await render(`<app-button variant="danger">Delete</app-button>`, { imports: [ButtonComponent] });
+    await render(`<app-button variant="danger">Delete</app-button>`, {
+      imports: [ButtonComponent],
+    });
     expect(screen.getByRole('button').className).toContain('btn--danger');
   });
 

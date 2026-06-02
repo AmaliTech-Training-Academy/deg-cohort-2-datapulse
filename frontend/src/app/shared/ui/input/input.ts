@@ -40,7 +40,8 @@ export class InputComponent implements ControlValueAccessor {
     if (!errors) return '';
     if (errors['required']) return 'This field is required.';
     if (errors['email']) return 'Enter a valid email address.';
-    if (errors['minlength']) return `Minimum ${errors['minlength'].requiredLength} characters required.`;
+    if (errors['minlength'])
+      return `Minimum ${errors['minlength'].requiredLength} characters required.`;
     return 'Invalid value.';
   }
 

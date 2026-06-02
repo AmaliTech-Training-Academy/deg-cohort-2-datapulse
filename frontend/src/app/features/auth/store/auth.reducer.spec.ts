@@ -46,7 +46,10 @@ describe('authReducer', () => {
 
     it('sets user and clears loading on registerSuccess', () => {
       const prev: AuthState = { ...initialState, loading: true };
-      const state = authReducer(prev, AuthActions.registerSuccess({ user: mockUser, token: 'tok' }));
+      const state = authReducer(
+        prev,
+        AuthActions.registerSuccess({ user: mockUser, token: 'tok' }),
+      );
       expect(state.user).toEqual(mockUser);
       expect(state.loading).toBe(false);
     });
