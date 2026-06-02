@@ -20,7 +20,9 @@ class TestVerifyEmail:
         response = api_client.post(VERIFY_URL, {"token": email_verification_token})
         assert response.status_code == 200
 
-    def test_valid_token_marks_user_verified(self, api_client, unverified_user, email_verification_token):
+    def test_valid_token_marks_user_verified(
+        self, api_client, unverified_user, email_verification_token
+    ):
         api_client.post(VERIFY_URL, {"token": email_verification_token})
         unverified_user.refresh_from_db()
         assert unverified_user.is_email_verified is True
@@ -30,17 +32,22 @@ class TestVerifyEmail:
         assert response.status_code == 400
 
     def test_expired_token_returns_400(self, api_client):
-        with patch("accounts.serializers.decode_email_verification_token", return_value=None):
+        with patch(
+            "accounts.serializers.decode_email_verification_token", return_value=None
+        ):
             response = api_client.post(VERIFY_URL, {"token": "any-token"})
         assert response.status_code == 400
 
     def test_already_verified_returns_400(self, api_client, verified_user):
         from accounts.tokens import make_email_verification_token
+
         token = make_email_verification_token(verified_user.email)
         response = api_client.post(VERIFY_URL, {"token": token})
         assert response.status_code == 400
 
-    def test_reused_token_returns_400(self, api_client, unverified_user, email_verification_token):
+    def test_reused_token_returns_400(
+        self, api_client, unverified_user, email_verification_token
+    ):
         # First use succeeds
         api_client.post(VERIFY_URL, {"token": email_verification_token})
         # Second use — user is already verified
@@ -53,7 +60,9 @@ class TestVerifyEmail:
 
 @pytest.mark.django_db
 class TestResendVerification:
-    def test_known_unverified_email_returns_200(self, api_client, unverified_user, mailoutbox):
+    def test_known_unverified_email_returns_200(
+        self, api_client, unverified_user, mailoutbox
+    ):
         response = api_client.post(RESEND_URL, {"email": unverified_user.email})
         assert response.status_code == 200
         assert len(mailoutbox) == 1

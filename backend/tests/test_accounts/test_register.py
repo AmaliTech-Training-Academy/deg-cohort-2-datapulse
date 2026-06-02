@@ -17,6 +17,7 @@ URL = reverse("auth-register")
 
 # ── Success ───────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 class TestRegisterSuccess:
     def test_returns_201(self, api_client):
@@ -43,9 +44,9 @@ class TestRegisterSuccess:
         api_client.post(URL, VALID_REGISTER_PAYLOAD)
         user = User.objects.get(email=VALID_REGISTER_PAYLOAD["email"])
         plain = VALID_REGISTER_PAYLOAD["password"]
-        assert user.password != plain          # not stored as plaintext
-        assert "$" in user.password            # hashed — all Django hashers use $ delimiter
-        assert user.check_password(plain)      # hash verifies correctly
+        assert user.password != plain  # not stored as plaintext
+        assert "$" in user.password  # hashed — all Django hashers use $ delimiter
+        assert user.check_password(plain)  # hash verifies correctly
 
     def test_user_is_not_verified_yet(self, api_client):
         api_client.post(URL, VALID_REGISTER_PAYLOAD)
@@ -68,6 +69,7 @@ class TestRegisterSuccess:
 
 
 # ── Validation failures ───────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 class TestRegisterValidation:

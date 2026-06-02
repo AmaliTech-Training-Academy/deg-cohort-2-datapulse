@@ -158,7 +158,7 @@ REST_FRAMEWORK = {
         "anon": "100/day",
         "user": "1000/day",
         "login": "5/minute",
-        "forgot_password": "3/hour",      # prevents email-bombing a target address
+        "forgot_password": "3/hour",  # prevents email-bombing a target address
         "resend_verification": "3/hour",  # same protection for verification resends
     },
     # Pagination — all list endpoints return max 20 items per page
@@ -257,7 +257,9 @@ EMAIL_PORT: int = config("EMAIL_PORT", default=587, cast=int)
 EMAIL_USE_TLS: bool = config("EMAIL_USE_TLS", default=True, cast=bool)
 EMAIL_HOST_USER: str = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD: str = config("EMAIL_HOST_PASSWORD", default="")
-DEFAULT_FROM_EMAIL: str = config("DEFAULT_FROM_EMAIL", default="DataPulse <noreply@datapulse.io>")
+DEFAULT_FROM_EMAIL: str = config(
+    "DEFAULT_FROM_EMAIL", default="DataPulse <noreply@datapulse.io>"
+)
 
 # Base URL of the React frontend — used to build links in emails
 FRONTEND_URL: str = config("FRONTEND_URL", default="http://localhost:3000")

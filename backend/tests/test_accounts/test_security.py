@@ -27,13 +27,17 @@ RESET_URL = reverse("auth-reset-password")
 class TestPasswordSecurity:
     def test_password_is_hashed_not_plaintext(self, api_client):
         plain = "Secure@123"
-        api_client.post(REGISTER_URL, {
-            "email": "sec@example.com",
-            "password": plain,
-            "first_name": "Test",
-            "last_name": "User",
-        })
+        api_client.post(
+            REGISTER_URL,
+            {
+                "email": "sec@example.com",
+                "password": plain,
+                "first_name": "Test",
+                "last_name": "User",
+            },
+        )
         from django.contrib.auth import get_user_model
+
         user = get_user_model().objects.get(email="sec@example.com")
         # Password must not be stored as plaintext — works with any hasher
         assert user.password != plain
@@ -42,7 +46,9 @@ class TestPasswordSecurity:
 
     def test_password_never_returned_in_any_response(self, api_client, verified_user):
         # login response
-        login = api_client.post(LOGIN_URL, {"email": verified_user.email, "password": VALID_PASSWORD})
+        login = api_client.post(
+            LOGIN_URL, {"email": verified_user.email, "password": VALID_PASSWORD}
+        )
         assert "password" not in str(login.data)
 
         # me response
@@ -56,9 +62,15 @@ class TestPasswordSecurity:
 class TestTokenSecurity:
     def test_reset_token_is_single_use(self, api_client, verified_user):
         token = password_reset_token_generator.make_token(verified_user)
-        api_client.post(RESET_URL, {"uid": str(verified_user.pk), "token": token, "password": NEW_PASSWORD})
+        api_client.post(
+            RESET_URL,
+            {"uid": str(verified_user.pk), "token": token, "password": NEW_PASSWORD},
+        )
         # Second use must fail because the password hash changed
-        response = api_client.post(RESET_URL, {"uid": str(verified_user.pk), "token": token, "password": "Another@789"})
+        response = api_client.post(
+            RESET_URL,
+            {"uid": str(verified_user.pk), "token": token, "password": "Another@789"},
+        )
         assert response.status_code == 400
 
     def test_refresh_token_blacklisted_after_rotation(self, api_client, verified_user):
@@ -75,9 +87,13 @@ class TestTokenSecurity:
         api_client.credentials(HTTP_AUTHORIZATION="Bearer notevenjwt")
         assert api_client.get(ME_URL).status_code == 401
 
-    def test_expired_jwt_cannot_access_protected_endpoint(self, api_client, verified_user):
+    def test_expired_jwt_cannot_access_protected_endpoint(
+        self, api_client, verified_user
+    ):
         token = AccessToken.for_user(verified_user)
-        token.payload["exp"] = int((datetime.now(tz=timezone.utc) - timedelta(hours=1)).timestamp())
+        token.payload["exp"] = int(
+            (datetime.now(tz=timezone.utc) - timedelta(hours=1)).timestamp()
+        )
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {str(token)}")
         assert api_client.get(ME_URL).status_code == 401
 
@@ -92,7 +108,9 @@ class TestEmailEnumerationPrevention:
         assert response.status_code == 200
 
     def test_resend_verification_unknown_email_returns_200(self, api_client):
-        response = api_client.post(reverse("auth-resend-verification"), {"email": "ghost@example.com"})
+        response = api_client.post(
+            reverse("auth-resend-verification"), {"email": "ghost@example.com"}
+        )
         assert response.status_code == 200
 
 
@@ -102,15 +120,23 @@ class TestRateLimiting:
         cache.clear()
 
     def test_forgot_password_rate_limited(self, api_client, settings):
-        settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["forgot_password"] = "2/minute"
+        settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"][
+            "forgot_password"
+        ] = "2/minute"
         for _ in range(2):
             api_client.post(FORGOT_URL, {"email": "test@example.com"})
         response = api_client.post(FORGOT_URL, {"email": "test@example.com"})
         assert response.status_code == 429
 
     def test_resend_verification_rate_limited(self, api_client, settings):
-        settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["resend_verification"] = "2/minute"
+        settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"][
+            "resend_verification"
+        ] = "2/minute"
         for _ in range(2):
-            api_client.post(reverse("auth-resend-verification"), {"email": "test@example.com"})
-        response = api_client.post(reverse("auth-resend-verification"), {"email": "test@example.com"})
+            api_client.post(
+                reverse("auth-resend-verification"), {"email": "test@example.com"}
+            )
+        response = api_client.post(
+            reverse("auth-resend-verification"), {"email": "test@example.com"}
+        )
         assert response.status_code == 429

@@ -79,11 +79,15 @@ class VerifyEmailSerializer(serializers.Serializer):
     def validate_token(self, value: str) -> str:
         email = decode_email_verification_token(value)
         if email is None:
-            raise serializers.ValidationError("This verification link is invalid or has expired.")
+            raise serializers.ValidationError(
+                "This verification link is invalid or has expired."
+            )
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            raise serializers.ValidationError("This verification link is invalid or has expired.")
+            raise serializers.ValidationError(
+                "This verification link is invalid or has expired."
+            )
         if user.is_email_verified:
             raise serializers.ValidationError("This email address is already verified.")
         self._verified_user = user
@@ -147,10 +151,14 @@ class ResetPasswordSerializer(serializers.Serializer):
         try:
             user = User.objects.get(pk=attrs["uid"])
         except User.DoesNotExist:
-            raise serializers.ValidationError({"token": "Invalid or expired reset link."})
+            raise serializers.ValidationError(
+                {"token": "Invalid or expired reset link."}
+            )
 
         if not password_reset_token_generator.check_token(user, attrs["token"]):
-            raise serializers.ValidationError({"token": "Invalid or expired reset link."})
+            raise serializers.ValidationError(
+                {"token": "Invalid or expired reset link."}
+            )
 
         self._user = user
         return attrs

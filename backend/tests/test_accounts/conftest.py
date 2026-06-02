@@ -12,7 +12,10 @@ from django.core.cache import cache
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from accounts.tokens import make_email_verification_token, password_reset_token_generator
+from accounts.tokens import (
+    make_email_verification_token,
+    password_reset_token_generator,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -21,6 +24,7 @@ def clear_throttle_cache():
     cache.clear()
     yield
     cache.clear()
+
 
 User = get_user_model()
 
@@ -38,6 +42,7 @@ NEW_PASSWORD = "NewPass@456"
 
 
 # ── User fixtures ─────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def verified_user(db) -> User:
@@ -81,6 +86,7 @@ def verified_client(api_client: APIClient, verified_user: User) -> APIClient:
 
 # ── Token fixtures ────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def email_verification_token(unverified_user: User) -> str:
     return make_email_verification_token(unverified_user.email)
@@ -92,6 +98,7 @@ def password_reset_token(verified_user: User) -> str:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def extract_token_from_email(body: str) -> str:
     """Pulls the ?token=... value out of an email body."""
