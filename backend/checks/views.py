@@ -21,6 +21,7 @@ at 'running'.
 
 import logging
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
@@ -52,6 +53,20 @@ class RunCheckView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={
+            201: QualityCheckSerializer,
+            400: None,
+            404: None,
+        },
+        summary="Run a quality check on a dataset",
+        description=(
+            "Triggers a full validation run against all rules defined for the dataset. "
+            "Returns the completed QualityCheck with per-rule findings and an overall score (0–100). "
+            "Requires at least one rule to exist."
+        ),
+    )
     def post(self, request: Request, dataset_id: str) -> Response:
         # 1. Ownership check
         try:
@@ -150,6 +165,10 @@ class CheckDetailView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: QualityCheckSerializer},
+        summary="Retrieve a quality check run by ID",
+    )
     def get(self, request: Request, check_id: str) -> Response:
         try:
             check = QualityCheck.objects.prefetch_related("findings__rule").get(
@@ -166,6 +185,10 @@ class CheckListView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: QualityCheckSerializer(many=True)},
+        summary="List all quality check runs for a dataset",
+    )
     def get(self, request: Request, dataset_id: str) -> Response:
         try:
             dataset = Dataset.objects.get(id=dataset_id, user=request.user)
