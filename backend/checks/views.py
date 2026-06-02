@@ -1,26 +1,28 @@
 """
 checks/views.py
 ────────────────────────────────────────────────────────────────────────────────
-RunCheckView    POST  /api/v1/datasets/<dataset_id>/run-check/
-CheckDetailView GET   /api/v1/checks/<id>/
+RunCheckView  POST  /api/v1/datasets/<dataset_id>/run-check/
+
+This is the only view in the checks app — it triggers a validation run.
+All report retrieval views (list, detail, trends, dashboard) live in
+reports/views.py.
 
 Flow:
   1. Verify dataset ownership
   2. Verify dataset has at least one rule
-  3. Create QualityCheck record (status=running)
-  4. Load file into Pandas via FileUploadService.load_dataframe()
+  3. Create QualityReport (status=running)
+  4. Load file into Pandas via FileUploadService
   5. Run ValidationEngine
   6. Compute score via QualityScoreCalculator
-  7. Save RuleFinding per rule
-  8. Update QualityCheck to status=completed
-  9. Return full serialized result
-
-Any uncaught exception sets status=failed so the record is never stuck
-at 'running'.
+  7. Save one RuleFinding per rule
+  8. Mark QualityReport as completed
+  9. Upsert TrendMetric for today
+  10. Return serialized report
 """
 
 import logging
 
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
@@ -30,10 +32,10 @@ from rest_framework.views import APIView
 
 from datasets.models import Dataset
 from datasets.services.file_service import FileUploadService
+from reports.models import QualityReport, RuleFinding, TrendMetric
+from reports.serializers import QualityReportSerializer
 from rules.models import ValidationRule
 
-from .models import QualityCheck, RuleFinding
-from .serializers import QualityCheckSerializer
 from .services.scoring_service import QualityScoreCalculator
 from .services.validation_engine import ValidationEngine
 
@@ -44,10 +46,10 @@ class RunCheckView(APIView):
     """
     POST /api/v1/datasets/<dataset_id>/run-check/
 
-    Triggers a full validation run on the dataset. Returns the completed
-    QualityCheck object with all RuleFindings nested.
-
-    Returns 201 on success, 400 if no rules exist, 404 if dataset not found.
+    Triggers a full validation run on the dataset.
+    Returns 201 with the completed QualityReport on success.
+    Returns 400 if no rules are defined.
+    Returns 404 if dataset not found.
     """
 
     permission_classes = [IsAuthenticated]
@@ -66,17 +68,19 @@ class RunCheckView(APIView):
                 {
                     "error": {
                         "code": "NO_RULES",
-                        "message": "No validation rules defined for this dataset. "
-                        "Add at least one rule before running a check.",
+                        "message": (
+                            "No validation rules defined for this dataset. "
+                            "Add at least one rule before running a check."
+                        ),
                         "fields": {},
                     }
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 3. Create check record — status=running immediately
-        check = QualityCheck.objects.create(
-            dataset=dataset, status=QualityCheck.Status.RUNNING
+        # 3. Create report record — status=running immediately
+        report = QualityReport.objects.create(
+            dataset=dataset, status=QualityReport.Status.RUNNING
         )
 
         try:
@@ -98,7 +102,7 @@ class RunCheckView(APIView):
             # 7. Persist one RuleFinding per rule result
             findings = [
                 RuleFinding(
-                    quality_check=check,
+                    quality_report=report,
                     rule_id=result.rule_id,
                     rows_checked=result.rows_checked,
                     rows_failed=result.rows_failed,
@@ -109,26 +113,33 @@ class RunCheckView(APIView):
             ]
             RuleFinding.objects.bulk_create(findings)
 
-            # 8. Mark check as completed
-            check.status = QualityCheck.Status.COMPLETED
-            check.overall_score = score_result.overall_score
-            check.total_rows_passed = score_result.total_rows_passed
-            check.total_rows_failed = score_result.total_rows_failed
-            check.save()
+            # 8. Mark report as completed
+            report.status = QualityReport.Status.COMPLETED
+            report.overall_score = score_result.overall_score
+            report.total_rows_passed = score_result.total_rows_passed
+            report.total_rows_failed = score_result.total_rows_failed
+            report.save()
+
+            # 9. Upsert today's trend snapshot
+            TrendMetric.objects.update_or_create(
+                dataset=dataset,
+                snapshot_date=timezone.now().date(),
+                defaults={"aggregated_score": score_result.overall_score},
+            )
 
             logger.info(
-                "Check completed: id=%s dataset=%s score=%d",
-                check.id,
+                "Check completed: report=%s dataset=%s score=%d",
+                report.id,
                 dataset.id,
-                check.overall_score,
+                report.overall_score,
             )
 
         except Exception as exc:
             # Always mark failed — never leave status=running
-            check.status = QualityCheck.Status.FAILED
-            check.error_message = str(exc)
-            check.save()
-            logger.exception("Check failed: id=%s error=%s", check.id, exc)
+            report.status = QualityReport.Status.FAILED
+            report.error_message = str(exc)
+            report.save()
+            logger.exception("Check failed: report=%s error=%s", report.id, exc)
             return Response(
                 {
                     "error": {
@@ -140,37 +151,6 @@ class RunCheckView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        # 9. Return completed check with all findings
-        serializer = QualityCheckSerializer(check, context={"request": request})
+        # 10. Return completed report with all findings
+        serializer = QualityReportSerializer(report)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
-class CheckDetailView(APIView):
-    """GET /api/v1/checks/<id>/ — retrieve a single check run with findings."""
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request: Request, check_id: str) -> Response:
-        try:
-            check = QualityCheck.objects.prefetch_related("findings__rule").get(
-                id=check_id, dataset__user=request.user
-            )
-        except QualityCheck.DoesNotExist:
-            raise NotFound("Check not found.")
-
-        return Response(QualityCheckSerializer(check).data)
-
-
-class CheckListView(APIView):
-    """GET /api/v1/datasets/<dataset_id>/checks/ — list all checks for a dataset."""
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request: Request, dataset_id: str) -> Response:
-        try:
-            dataset = Dataset.objects.get(id=dataset_id, user=request.user)
-        except Dataset.DoesNotExist:
-            raise NotFound("Dataset not found.")
-
-        checks = QualityCheck.objects.filter(dataset=dataset).order_by("-generated_at")
-        return Response(QualityCheckSerializer(checks, many=True).data)
