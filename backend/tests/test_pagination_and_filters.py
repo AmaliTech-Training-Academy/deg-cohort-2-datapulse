@@ -16,9 +16,7 @@ import pytest
 UPLOAD_URL = "/api/v1/datasets/upload/"
 
 VALID_CSV = (
-    b"id,age,email,score\n"
-    b"1,25,alice@test.com,88\n"
-    b"2,30,bob@test.com,92\n"
+    b"id,age,email,score\n" b"1,25,alice@test.com,88\n" b"2,30,bob@test.com,92\n"
 )
 
 
@@ -276,9 +274,7 @@ class TestRuleFilters:
         assert resp.json()["results"][0]["column_name"] == "email"
 
     def test_no_match_returns_empty(self, auth_client, uploaded):
-        resp = auth_client.get(
-            f"{rules_url(uploaded['id'])}?rule_type=type_check"
-        )
+        resp = auth_client.get(f"{rules_url(uploaded['id'])}?rule_type=type_check")
         assert resp.json()["count"] == 0
 
     def test_combined_rule_type_and_column(self, auth_client, uploaded):
@@ -328,17 +324,13 @@ class TestReportFilters:
     def test_date_from_filters_reports(self, auth_client, with_rule):
         auth_client.post(run_check_url(with_rule["id"]))
         tomorrow = (date.today() + timedelta(days=1)).isoformat()
-        resp = auth_client.get(
-            f"{reports_url(with_rule['id'])}?date_from={tomorrow}"
-        )
+        resp = auth_client.get(f"{reports_url(with_rule['id'])}?date_from={tomorrow}")
         assert resp.json()["count"] == 0
 
     def test_date_to_filters_reports(self, auth_client, with_rule):
         auth_client.post(run_check_url(with_rule["id"]))
         yesterday = (date.today() - timedelta(days=1)).isoformat()
-        resp = auth_client.get(
-            f"{reports_url(with_rule['id'])}?date_to={yesterday}"
-        )
+        resp = auth_client.get(f"{reports_url(with_rule['id'])}?date_to={yesterday}")
         assert resp.json()["count"] == 0
 
     def test_date_range_includes_today(self, auth_client, with_rule):
