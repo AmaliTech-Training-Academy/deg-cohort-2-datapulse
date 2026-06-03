@@ -44,8 +44,8 @@ def test_transform_derives_passed_column():
 
     # failure_percentage == 0 → passed = True
     findings["passed"] = findings["failure_percentage"] == 0
-    assert findings.iloc[0]["passed"] is True
-    assert findings.iloc[1]["passed"] is False
+    assert findings.iloc[0]["passed"] == True
+    assert findings.iloc[1]["passed"] == False
 
 
 def test_transform_derives_score():
