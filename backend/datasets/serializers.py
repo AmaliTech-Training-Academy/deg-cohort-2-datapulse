@@ -50,6 +50,7 @@ class DatasetResponseSerializer(serializers.ModelSerializer):
             "file_title",
             "description",
             "row_count",
+            "columns",
             "created_at",
             "updated_at",
         ]
