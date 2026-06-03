@@ -2,8 +2,8 @@
 tests/checks/test_run_check_api.py
 Tests for:
   POST /api/v1/datasets/<id>/run-check/
-  GET  /api/v1/checks/<id>/
-  GET  /api/v1/datasets/<id>/checks/
+  GET  /api/v1/reports/<id>/
+  GET  /api/v1/datasets/<id>/reports/
 """
 
 import io
@@ -68,11 +68,11 @@ def run_check_url(dataset_id):
 
 
 def check_url(check_id):
-    return f"/api/v1/checks/{check_id}/"
+    return f"/api/v1/reports/{check_id}/"
 
 
 def checks_list_url(dataset_id):
-    return f"/api/v1/datasets/{dataset_id}/checks/"
+    return f"/api/v1/datasets/{dataset_id}/reports/"
 
 
 # ── Run check ─────────────────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ class TestRunCheck:
         assert len(resp.json()) == 2
 
 
-# ── Check detail ──────────────────────────────────────────────────────────────
+# ── Report detail ─────────────────────────────────────────────────────────────
 
 
 @pytest.mark.django_db
@@ -189,7 +189,7 @@ class TestCheckDetail:
         assert len(resp.json()["findings"]) == 4
 
 
-# ── Check list ────────────────────────────────────────────────────────────────
+# ── Report list ───────────────────────────────────────────────────────────────
 
 
 @pytest.mark.django_db
