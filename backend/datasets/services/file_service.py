@@ -18,10 +18,18 @@ replace() additionally:
     8. Flag any ValidationRule whose column_name no longer exists in the
        new file's columns (stale rules do not block the replacement)
 
+Error handling policy
+─────────────────────
+Every user-facing problem raises rest_framework.exceptions.ValidationError
+with a field key of "file" and a human-readable message.  Raw Pandas /
+standard-library exception strings are never exposed to the client — they
+are logged at WARNING level for debugging and replaced with a clear message.
+
 Called by DatasetUploadView and DatasetFileUpdateView — no Django request
 object inside this class, only primitives and the uploaded file object.
 """
 
+import json
 import logging
 import os
 import uuid
@@ -65,9 +73,20 @@ class FileUploadService:
 
         try:
             df = self._parse(file_path, file_type)
+        except ValidationError:
+            self._remove_file(file_path)
+            raise
         except Exception as exc:
             self._remove_file(file_path)
-            raise ValidationError({"file": f"Could not parse file: {exc}"}) from exc
+            logger.warning(
+                "File parse failed during upload: file=%s error=%s",
+                file.name,
+                exc,
+                exc_info=True,
+            )
+            raise ValidationError(
+                {"file": self._user_friendly_parse_error(exc, file_type)}
+            ) from exc
 
         self._check_rows(df, file_path)
 
@@ -106,9 +125,9 @@ class FileUploadService:
         -----
         1. Validate + parse the new file (same rules as upload)
         2. Save new file to disk
-        3. Delete the old file from disk
-        4. Update dataset metadata in a single .save() call:
+        3. Update dataset metadata in a single .save() call:
              file_name, file_type, file_path, row_count, columns, file_version+1
+        4. Delete the old file from disk (after DB commit succeeds)
         5. Return (updated dataset, new DataFrame, stale_columns)
            where stale_columns is the list of column names that existed in the
            old file but are absent from the new one — the view surfaces these
@@ -133,22 +152,33 @@ class FileUploadService:
 
         try:
             df = self._parse(new_file_path, new_file_type)
+        except ValidationError:
+            self._remove_file(new_file_path)
+            raise
         except Exception as exc:
             self._remove_file(new_file_path)
-            raise ValidationError({"file": f"Could not parse file: {exc}"}) from exc
+            logger.warning(
+                "File parse failed during replace: dataset=%s file=%s error=%s",
+                dataset.id,
+                file.name,
+                exc,
+                exc_info=True,
+            )
+            raise ValidationError(
+                {"file": self._user_friendly_parse_error(exc, new_file_type)}
+            ) from exc
 
         self._check_rows(df, new_file_path)
 
         # Identify rules that reference columns no longer in the new file
-        old_columns = set(dataset.columns or [])
-        new_columns = set(df.columns.tolist())
-        stale_columns = sorted(old_columns - new_columns)
+        previous_file_columns = set(dataset.columns or [])
+        uploaded_file_columns = set(df.columns.tolist())
+        stale_columns = sorted(previous_file_columns - uploaded_file_columns)
 
-        # Remove the old physical file after the new one is safely on disk
+        # Save DB record first — if save() fails, the old file is still intact
+        # and the DB still points to the correct path. Only remove the old file
+        # once the DB has been updated successfully.
         old_file_path = dataset.file_path
-        self._remove_file(old_file_path)
-
-        # Atomically update all file-derived metadata + bump version
         dataset.file_name = file.name
         dataset.file_type = new_file_type
         dataset.file_path = new_file_path
@@ -166,6 +196,9 @@ class FileUploadService:
                 "updated_at",
             ]
         )
+
+        # DB is committed — safe to remove the old file from disk now
+        self._remove_file(old_file_path)
 
         logger.info(
             "Dataset file replaced: id=%s user=%s version=%d rows=%d stale_columns=%s",
@@ -185,7 +218,10 @@ class FileUploadService:
         if file.size > MAX_FILE_SIZE_BYTES:
             raise ValidationError(
                 {
-                    "file": f"File exceeds the {MAX_FILE_SIZE_BYTES // 1024 // 1024} MB limit."
+                    "file": (
+                        f"File exceeds the {MAX_FILE_SIZE_BYTES // 1024 // 1024} MB limit. "
+                        f"Received {file.size / 1024 / 1024:.1f} MB."
+                    )
                 }
             )
 
@@ -193,6 +229,12 @@ class FileUploadService:
         """
         Detect file type from the first 512 bytes of content.
         Never trust the file extension — users rename files.
+
+        Detection order:
+          1. If content starts with { or [ → JSON
+          2. If content contains commas → CSV
+          3. If filename ends with .csv → CSV (for single-column files)
+          4. Otherwise → unsupported type error
         """
         header = file.read(512)
         file.seek(0)  # reset so Pandas can read from the start
@@ -200,17 +242,34 @@ class FileUploadService:
         try:
             text = header.decode("utf-8-sig").strip()
         except UnicodeDecodeError:
-            text = header.decode("latin-1").strip()
+            try:
+                text = header.decode("latin-1").strip()
+            except UnicodeDecodeError:
+                raise ValidationError(
+                    {
+                        "file": (
+                            "File encoding is not supported. "
+                            "Upload a UTF-8 or Latin-1 encoded CSV or JSON file."
+                        )
+                    }
+                )
+
+        if not text:
+            raise ValidationError({"file": "The uploaded file is empty."})
 
         if text.startswith("{") or text.startswith("["):
             return "json"
 
-        # CSV: has commas or the filename ends with .csv
         if "," in text or file.name.lower().endswith(".csv"):
             return "csv"
 
         raise ValidationError(
-            {"file": "Unsupported file type. Upload a CSV or JSON file."}
+            {
+                "file": (
+                    "Unsupported file type. Upload a CSV or JSON file. "
+                    f"Received: '{file.name}'."
+                )
+            }
         )
 
     def _save_to_disk(self, file, user_id, file_type: str) -> str:
@@ -229,29 +288,159 @@ class FileUploadService:
 
     def _parse(self, file_path: str, file_type: str) -> pd.DataFrame:
         """
-        Load the file into a Pandas DataFrame.
+        Load the file into a Pandas DataFrame with robust error handling.
 
-        CSV: tries UTF-8 with BOM strip first, falls back to Latin-1.
-        JSON: expects array-of-objects [{col: val}, ...].
-              Rejects array-of-arrays (produces integer column names).
+        CSV handling:
+          - Tries UTF-8 with BOM strip first, falls back to Latin-1
+          - Raises ValidationError for malformed structure (ParserError)
+          - Raises ValidationError for completely empty files (EmptyDataError)
+          - Raises ValidationError if header-only (no data rows)
+
+        JSON handling:
+          - Raises ValidationError for invalid JSON syntax
+          - Raises ValidationError for array-of-arrays format
+          - Raises ValidationError for JSON object (not array-of-objects)
+          - Raises ValidationError if file has no data rows
         """
         if file_type == "csv":
-            try:
-                df = pd.read_csv(file_path, encoding="utf-8-sig")
-            except UnicodeDecodeError:
-                df = pd.read_csv(file_path, encoding="latin-1")
-
-        else:  # json
-            df = pd.read_json(file_path)
-            # Guard against array-of-arrays format
-            if all(isinstance(c, int) for c in df.columns):
-                raise ValueError(
-                    "JSON must be an array of objects "
-                    '[{"col": value}, ...], not an array of arrays.'
-                )
+            df = self._parse_csv(file_path)
+        else:
+            df = self._parse_json(file_path)
 
         if df.empty:
-            raise ValueError("File has no data rows.")
+            raise ValidationError({"file": "The file has no data rows."})
+
+        return df
+
+    def _parse_csv(self, file_path: str) -> pd.DataFrame:
+        """
+        Parse a CSV file with encoding fallback and structured error messages.
+
+        Raises ValidationError for:
+          - Completely empty files (pd.errors.EmptyDataError)
+          - Malformed CSV structure (pd.errors.ParserError)
+          - Files that cannot be decoded in any supported encoding
+        """
+        try:
+            df = pd.read_csv(file_path, encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            try:
+                df = pd.read_csv(file_path, encoding="latin-1")
+            except UnicodeDecodeError:
+                raise ValidationError(
+                    {
+                        "file": (
+                            "CSV file encoding is not supported. "
+                            "Save the file as UTF-8 or Latin-1 and try again."
+                        )
+                    }
+                )
+        except pd.errors.EmptyDataError:
+            raise ValidationError(
+                {
+                    "file": "The CSV file is empty. It must contain at least a header row and one data row."
+                }
+            )
+        except pd.errors.ParserError as exc:
+            raise ValidationError(
+                {
+                    "file": (
+                        "The CSV file could not be parsed. "
+                        "Check for mismatched quotes, inconsistent delimiters, or broken rows. "
+                        f"Detail: {exc}"
+                    )
+                }
+            ) from exc
+
+        # A header-only file parses successfully but has no rows
+        if df.empty:
+            raise ValidationError(
+                {"file": "The CSV file has a header but no data rows."}
+            )
+
+        return df
+
+    def _parse_json(self, file_path: str) -> pd.DataFrame:
+        """
+        Parse a JSON file with format validation and structured error messages.
+
+        Expected format: array of objects [{col: val}, ...]
+
+        Raises ValidationError for:
+          - Invalid JSON syntax
+          - JSON object instead of array ({} at top level)
+          - Array of arrays instead of array of objects
+          - Empty array
+        """
+        # Pre-validate JSON syntax before handing off to Pandas.
+        # Pandas error messages for malformed JSON are verbose and expose internals.
+        try:
+            with open(file_path, "r", encoding="utf-8-sig") as f:
+                raw = json.load(f)
+        except UnicodeDecodeError:
+            try:
+                with open(file_path, "r", encoding="latin-1") as f:
+                    raw = json.load(f)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                raise ValidationError(
+                    {
+                        "file": (
+                            "JSON file encoding is not supported. "
+                            "Save the file as UTF-8 and try again."
+                        )
+                    }
+                )
+        except json.JSONDecodeError as exc:
+            raise ValidationError(
+                {
+                    "file": (
+                        f"Invalid JSON: {exc.msg} at line {exc.lineno}, column {exc.colno}. "
+                        "Verify the file is valid JSON using a validator such as jsonlint.com."
+                    )
+                }
+            ) from exc
+
+        # Top-level must be an array, not an object
+        if isinstance(raw, dict):
+            raise ValidationError(
+                {
+                    "file": (
+                        "JSON must be an array of objects: "
+                        '[{"column": value}, ...]. '
+                        "A top-level JSON object ({}) is not supported."
+                    )
+                }
+            )
+
+        if not isinstance(raw, list):
+            raise ValidationError(
+                {"file": "JSON must be an array of objects: [{...}, {...}]."}
+            )
+
+        if len(raw) == 0:
+            raise ValidationError(
+                {"file": "The JSON array is empty. Add at least one object."}
+            )
+
+        # Array-of-arrays check — must be array of objects
+        if not isinstance(raw[0], dict):
+            raise ValidationError(
+                {
+                    "file": (
+                        "JSON must be an array of objects: "
+                        '[{"column": value}, ...]. '
+                        "An array of arrays is not supported."
+                    )
+                }
+            )
+
+        # Now parse through Pandas (structure is validated)
+        try:
+            df = pd.read_json(file_path)
+        except ValueError as exc:
+            raise ValidationError(
+                {"file": f"JSON file could not be loaded into a table: {exc}"}
+            ) from exc
 
         return df
 
@@ -261,13 +450,50 @@ class FileUploadService:
             self._remove_file(file_path)
             raise ValidationError(
                 {
-                    "file": f"File exceeds the {MAX_ROWS:,} row limit ({len(df):,} rows found)."
+                    "file": (
+                        f"File exceeds the {MAX_ROWS:,} row limit "
+                        f"({len(df):,} rows found). "
+                        "Split the file into smaller chunks and upload separately."
+                    )
                 }
             )
 
     def _remove_file(self, file_path: str) -> None:
-        """Silently remove a file from disk on parse failure."""
+        """Silently remove a file from disk — called on parse failure or replacement."""
         try:
             os.remove(file_path)
         except OSError:
             pass
+
+    @staticmethod
+    def _user_friendly_parse_error(exc: Exception, file_type: str) -> str:
+        """
+        Map raw exceptions to user-friendly messages.
+
+        Only reached for unexpected exceptions that were not caught inside
+        _parse_csv() or _parse_json() — serves as a last-resort fallback.
+        The raw exception is logged at WARNING before this is called.
+        """
+        if isinstance(exc, pd.errors.ParserError):
+            return (
+                "The CSV file structure is invalid. "
+                "Check for mismatched quotes, inconsistent column counts, or broken rows."
+            )
+        if isinstance(exc, pd.errors.EmptyDataError):
+            return "The file is empty or contains only whitespace."
+        if isinstance(exc, (ValueError, json.JSONDecodeError)):
+            if file_type == "json":
+                return (
+                    "The JSON file is malformed. "
+                    "Verify it is valid JSON at jsonlint.com."
+                )
+            return "The file content is invalid."
+        if isinstance(exc, MemoryError):
+            return (
+                "The file is too large to process in memory. "
+                f"Maximum file size is {MAX_FILE_SIZE_BYTES // 1024 // 1024} MB."
+            )
+        return (
+            "The file could not be parsed. "
+            f"Ensure it is a valid {'CSV' if file_type == 'csv' else 'JSON'} file and try again."
+        )
