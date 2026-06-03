@@ -25,7 +25,6 @@ from analytics import (
     quality_trend,
     worst_datasets,
     monthly_summary,
-    score_dataframe,
 )
 
 # Page config

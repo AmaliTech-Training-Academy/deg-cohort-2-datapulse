@@ -1,4 +1,4 @@
--- DataPulse Analytics Queries
+-- DataPulse Analytics Queries`
 -- These queries answer business questions about data quality trends.
 
 
