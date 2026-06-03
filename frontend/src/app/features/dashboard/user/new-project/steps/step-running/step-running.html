@@ -1,0 +1,80 @@
+<div class="step-layout">
+  <div class="step-main">
+    <div class="card">
+      <h2 class="card__title">Running validation</h2>
+      <p class="card__subtitle">Checking rows against {{ rules().length }} rules — this usually takes a few seconds</p>
+
+      <div class="checks-section">
+        <div class="progress-header">
+          <span class="progress-pct">{{ progressPct() }}</span>
+          @if (isComplete()) {
+            <span class="progress-status">All checks complete</span>
+          } @else {
+            <span class="progress-status">Running…</span>
+          }
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" [style.width]="progressPct()"></div>
+        </div>
+
+        <div class="checks-list">
+          @for (rule of rules(); track rule.id) {
+            @if (rule.enabled) {
+              <div class="check-item" [class.check-item--visible]="progress() > 20">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="check-name">{{ rule.name }}</span>
+                <span class="check-column">{{ rule.column }}</span>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (isComplete()) {
+    <aside class="step-aside">
+      <div class="card score-card">
+        <h3 class="score-title">First quality score</h3>
+        <p class="score-subtitle">Weighted across all {{ rules().length }} checks</p>
+        <div class="ring-wrapper">
+          <app-score-ring [score]="firstScore" [size]="140" [strokeWidth]="12" />
+        </div>
+        <div class="summary-items">
+          <div class="summary-item summary-item--pass">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <div>
+              <p class="summary-item__title">{{ passedChecks() }} checks passed cleanly</p>
+              <p class="summary-item__desc">customer_id, signup_date, and age had no issues</p>
+            </div>
+          </div>
+          <div class="summary-item summary-item--warn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <div>
+              <p class="summary-item__title">2 checks flagged rows</p>
+              <p class="summary-item__desc">318 null emails · 5 duplicate customer_id values</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  }
+</div>
+
+<div class="step-footer">
+  <button class="btn-back" type="button" (click)="back.emit()">Back</button>
+  @if (isComplete()) {
+    <button class="btn-primary" type="button" (click)="createProject.emit()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      Create project
+    </button>
+  }
+</div>

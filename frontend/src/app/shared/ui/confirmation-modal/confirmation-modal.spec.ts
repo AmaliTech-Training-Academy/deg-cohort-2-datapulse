@@ -2,15 +2,17 @@ import { render, screen, fireEvent } from '@testing-library/angular';
 import { ConfirmationModalComponent } from './confirmation-modal';
 
 describe('ConfirmationModalComponent', () => {
-  async function setup(inputs: Partial<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    confirmLabel: string;
-    cancelLabel: string;
-    variant: 'danger' | 'warning' | 'info';
-    loading: boolean;
-  }> = {}) {
+  async function setup(
+    inputs: Partial<{
+      isOpen: boolean;
+      title: string;
+      message: string;
+      confirmLabel: string;
+      cancelLabel: string;
+      variant: 'danger' | 'warning' | 'info';
+      loading: boolean;
+    }> = {},
+  ) {
     const { fixture } = await render(ConfirmationModalComponent, {
       componentInputs: {
         isOpen: true,

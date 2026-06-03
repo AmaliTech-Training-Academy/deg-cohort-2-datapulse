@@ -22,12 +22,22 @@
       <a labelAction routerLink="/reset-password" class="field-action">Forgot password?</a>
     </app-input>
 
-    <app-button type="submit" [loading]="loading()" [fullWidth]="true">
-      Sign in
-    </app-button>
+    <app-button type="submit" [loading]="loading()" [fullWidth]="true"> Sign in </app-button>
 
-    <p class="auth-footer">
-      New to DataPulse? <a routerLink="/register">Create an account</a>
-    </p>
+    <p class="auth-footer">New to DataPulse? <a routerLink="/register">Create an account</a></p>
   </form>
+
+  @if (isDev) {
+    <div class="dev-shortcuts">
+      <p class="dev-shortcuts__label">Dev shortcuts</p>
+      <div class="dev-shortcuts__buttons">
+        <button class="dev-btn dev-btn--admin" type="button" (click)="devLogin('admin')">
+          Login as Admin
+        </button>
+        <button class="dev-btn dev-btn--user" type="button" (click)="devLogin('user')">
+          Login as User
+        </button>
+      </div>
+    </div>
+  }
 </app-auth-layout>

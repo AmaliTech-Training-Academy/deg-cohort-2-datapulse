@@ -1,0 +1,26 @@
+.page { display: flex; flex-direction: column; gap: 24px; }
+.page__header { }
+.page__title { font-size: 22px; font-weight: 700; color: var(--color-text-primary); }
+.page__subtitle { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
+
+.settings-layout { display: grid; grid-template-columns: 200px 1fr; gap: 24px; align-items: start; }
+
+.settings-nav { display: flex; flex-direction: column; gap: 2px; }
+
+.settings-nav__item {
+  display: block;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.settings-nav__item:hover { background: var(--color-surface-raised); color: var(--color-text-primary); text-decoration: none; }
+.settings-nav__item--active { background: color-mix(in srgb, var(--color-primary) 10%, transparent); color: var(--color-primary); font-weight: 600; }
+.settings-nav__item--active:hover { background: color-mix(in srgb, var(--color-primary) 14%, transparent); color: var(--color-primary); }
+
+.settings-content { min-width: 0; }
+
+@media (max-width: 700px) { .settings-layout { grid-template-columns: 1fr; } }
