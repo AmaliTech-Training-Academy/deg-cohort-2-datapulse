@@ -72,8 +72,8 @@ class RuleListCreateView(APIView):
             "Supported rule_type values: `null_check`, `type_check`, `range_check`, `uniqueness_check`.\n\n"
             "rule_config per type:\n"
             "- `null_check`: `{}`\n"
-            "- `type_check`: `{\"expected_type\": \"integer|float|string|boolean\"}`\n"
-            "- `range_check`: `{\"min\": 0, \"max\": 100}`\n"
+            '- `type_check`: `{"expected_type": "integer|float|string|boolean"}`\n'
+            '- `range_check`: `{"min": 0, "max": 100}`\n'
             "- `uniqueness_check`: `{}`"
         ),
     )
