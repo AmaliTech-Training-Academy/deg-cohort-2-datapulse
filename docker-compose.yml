@@ -1,17 +1,17 @@
 services:
   db:
     image: postgres:15-alpine
-    container_name: datapulse-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-datapulse}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-datapulse}
-      POSTGRES_DB: ${POSTGRES_DB:-datapulse}
+      POSTGRES_DB: ${DB_NAME:-datapulse}
+      POSTGRES_USER: ${DB_USER:-datapulse_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-datapulse_pass}
     ports:
-      - "5432:5432"
+      - "${DB_EXTERNAL_PORT:-5433}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-datapulse}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-datapulse_user} -d ${DB_NAME:-datapulse}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,15 +20,63 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: datapulse-backend
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py seed_db &&
+             python manage.py runserver 0.0.0.0:8000"
     env_file: .env
-    ports:
-      - "8000:8000"
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
     volumes:
       - ./backend:/app
-      - upload_data:/app/uploads
+      - media_data:/app/media
+    ports:
+      - "${WEB_PORT:-8000}:8000"
     depends_on:
       db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  analytics_db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ANALYTICS_DB_NAME:-datapulse_analytics}
+      POSTGRES_USER: ${ANALYTICS_DB_USER:-analytics_user}
+      POSTGRES_PASSWORD: ${ANALYTICS_DB_PASSWORD:-analytics_pass}
+    ports:
+      - "5437:5432"
+    volumes:
+      - analytics_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_DB_USER:-analytics_user} -d ${ANALYTICS_DB_NAME:-datapulse_analytics}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pipeline:
+    profiles: [pipeline]
+    build:
+      context: ./data-engineering
+      dockerfile: Dockerfile
+    command: python pipeline/etl_pipeline.py
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      SOURCE_DB_URL: postgresql://datapulse_user:datapulse_pass@db:5432/datapulse
+      TARGET_DB_URL: postgresql://analytics_user:analytics_pass@analytics_db:5432/datapulse_analytics
+    depends_on:
+      db:
+        condition: service_healthy
+      analytics_db:
         condition: service_healthy
 
   frontend:
@@ -36,7 +84,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: datapulse-frontend
     ports:
       - "4200:4200"
     volumes:
@@ -47,17 +94,7 @@ services:
     depends_on:
       - backend
 
-  pipeline:
-    profiles: [pipeline]
-    build:
-      context: .
-      dockerfile: devops/Dockerfile.pipeline
-    container_name: datapulse-pipeline
-    env_file: .env
-    depends_on:
-      db:
-        condition: service_healthy
-
 volumes:
-  pgdata:
-  upload_data:
+  postgres_data:
+  media_data:
+  analytics_data:

@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DataPulse — Data Engineering Docker Compose
+# ─────────────────────────────────────────────────────────────────────────────
+# Requires the backend DB to be running first:
+#   cd ../backend && docker compose up -d
+#
+# Then start this:
+#   docker compose up --build
+#
+# Run pipeline manually:
+#   docker compose run --rm pipeline
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── Analytics PostgreSQL DB (target) ──────────────────────────────────────
+  analytics_db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ANALYTICS_DB_NAME:-datapulse_analytics}
+      POSTGRES_USER: ${ANALYTICS_DB_USER:-analytics_user}
+      POSTGRES_PASSWORD: ${ANALYTICS_DB_PASSWORD:-analytics_pass}
+    ports:
+      # - "${ANALYTICS_DB_EXTERNAL_PORT:-5434}:5432"
+      - "5436:5432"
+    volumes:
+      - analytics_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${ANALYTICS_DB_USER:-analytics_user} -d ${ANALYTICS_DB_NAME:-datapulse_analytics}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── ETL Pipeline ──────────────────────────────────────────────────────────
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "no"          # run once and exit; use `docker compose run` to trigger manually
+    environment:
+      SOURCE_DB_URL: ${SOURCE_DB_URL:-postgresql://datapulse_user:datapulse_pass@host.docker.internal:5433/datapulse}
+      TARGET_DB_URL: ${TARGET_DB_URL:-postgresql://analytics_user:analytics_pass@analytics_db:5432/datapulse_analytics}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # needed on Linux to reach host machine
+    depends_on:
+      analytics_db:
+        condition: service_healthy
+
+# ── Named volumes ─────────────────────────────────────────────────────────
+volumes:
+  analytics_data:

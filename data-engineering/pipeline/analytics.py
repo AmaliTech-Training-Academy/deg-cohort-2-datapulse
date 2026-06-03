@@ -1,6 +1,5 @@
 # data-engineering/pipeline/analytics.py
 #
-# DE2 (Odile) owns this file.
 # Python analytics queries for DataPulse quality trends.
 # These functions read from the sample CSV files and produce
 # analytics results that feed the dashboard.
@@ -11,75 +10,122 @@
 #       worst_datasets, monthly_summary
 #   )
 
+# data-engineering/pipeline/analytics.py
+#
+# DE2 (Odile) owns this file.
+# Scoring formula matches backend's QualityScoreCalculator exactly:
+#   score = (total_rows - len(failed_union)) / total_rows * 100
+# Where failed_union = set union of all failed row indexes across all rules.
+# A row failing 3 rules counts as ONE failed row — not three.
+
 import os
+import sys
 import pandas as pd
 from datetime import datetime, timedelta
+import random
 
-# Sample data paths 
+# ── Sample data paths ─────────────────────────────────────────────────────────
 SAMPLE_DIR = os.path.join(os.path.dirname(__file__), "..", "sample_data")
 
 DATASETS = {
-    "good_data":   os.path.join(SAMPLE_DIR, "good_data.csv"),
-    "bad_data":    os.path.join(SAMPLE_DIR, "bad_data.csv"),
-    "mixed_data":  os.path.join(SAMPLE_DIR, "mixed_data.csv"),
-    "large_clean": os.path.join(SAMPLE_DIR, "large_clean.csv"),
-    "large_dirty": os.path.join(SAMPLE_DIR, "large_dirty.csv"),
-    "large_mixed": os.path.join(SAMPLE_DIR, "large_mixed.csv"),
+    "clean_data":       os.path.join(SAMPLE_DIR, "clean_data.csv"),
+    "messy_data":       os.path.join(SAMPLE_DIR, "messy_data.csv"),
+    "mixed_data":       os.path.join(SAMPLE_DIR, "mixed_data.csv"),
+    "large_clean_data": os.path.join(SAMPLE_DIR, "large_clean_data.csv"),
+    "large_messy_data": os.path.join(SAMPLE_DIR, "large_messy_data.csv"),
+    "large_mixed_data": os.path.join(SAMPLE_DIR, "large_mixed_data.csv"),
 }
 
 
-# Core scoring function
+# ── Core scoring function — matches backend QualityScoreCalculator ────────────
 
 def score_dataframe(df: pd.DataFrame) -> dict:
     """
-    Compute quality score for a dataframe.
-    Score = % of rows passing ALL rules.
-    Rules: not_null, age_range, salary_range, hire_date_valid
+    Compute quality score matching backend's QualityScoreCalculator formula.
+
+    Formula:
+        score = (total_rows - len(failed_union)) / total_rows * 100
+
+    Where:
+        failed_union = set union of all failed row indexes across all rules
+        A row failing 3 rules counts as ONE failed row — not three.
+
+    Score is rounded to nearest integer — matches quality_reports.overall_score
     """
     total = len(df)
-    if total == 0:
-        return {"score": 0, "total_rows": 0, "passed_rows": 0,
-                "failed_rows": 0, "rule_results": {}}
 
+    if total == 0:
+        return {
+            "score":        100,
+            "total_rows":   0,
+            "passed_rows":  0,
+            "failed_rows":  0,
+            "rule_results": {},
+        }
+
+    # ── Build failed row index per rule ───────────────────────────────────────
     rules = {
-        "not_null_name":    df["name"].isnull() | (df["name"].astype(str).str.strip() == ""),
-        "not_null_email":   df["email"].isnull() | (df["email"].astype(str).str.strip() == ""),
-        "not_null_dept":    df["department"].isnull() | (df["department"].astype(str).str.strip() == ""),
-        "age_range":        ~pd.to_numeric(df["age"], errors="coerce").between(18, 65),
-        "salary_positive":  ~pd.to_numeric(df["salary"], errors="coerce").gt(0),
-        "hire_date_valid":  pd.to_datetime(df["hire_date"], errors="coerce").isnull(),
+        "not_null_name": df[
+            df["name"].isnull() |
+            (df["name"].astype(str).str.strip() == "")
+        ].index,
+
+        "not_null_email": df[
+            df["email"].isnull() |
+            (df["email"].astype(str).str.strip() == "")
+        ].index,
+
+        "not_null_department": df[
+            df["department"].isnull() |
+            (df["department"].astype(str).str.strip() == "")
+        ].index,
+
+        "age_range": df[
+            ~pd.to_numeric(df["age"], errors="coerce").between(18, 65)
+        ].index,
+
+        "salary_positive": df[
+            ~pd.to_numeric(df["salary"], errors="coerce").gt(0)
+        ].index,
+
+        "hire_date_valid": df[
+            pd.to_datetime(df["hire_date"], errors="coerce").isnull()
+        ].index,
     }
 
-    # Row passes only if it passes ALL rules
-    fail_any = pd.Series([False] * total, index=df.index)
+    # ── Union of all failed row indexes ───────────────────────────────────────
+    failed_union = set()
     rule_results = {}
 
-    for rule_name, fail_mask in rules.items():
-        failed_rows = int(fail_mask.sum())
+    for rule_name, failed_index in rules.items():
+        failed_union.update(failed_index)   # union — not sum
+        failed_count = len(failed_index)
         rule_results[rule_name] = {
-            "failed_rows": failed_rows,
-            "passed":      failed_rows == 0,
-            "pass_rate":   round((total - failed_rows) / total * 100, 2)
+            "failed_rows": failed_count,
+            "passed":      failed_count == 0,
+            "pass_rate":   round((total - failed_count) / total * 100, 2),
         }
-        fail_any = fail_any | fail_mask
 
-    passed_rows = int((~fail_any).sum())
-    score       = round(passed_rows / total * 100, 2)
+    # ── Final score ───────────────────────────────────────────────────────────
+    unique_failed = len(failed_union)
+    passed_rows   = total - unique_failed
+    raw_score     = (passed_rows / total) * 100
+    score         = max(0, min(100, round(raw_score)))
 
     return {
         "score":        score,
         "total_rows":   total,
         "passed_rows":  passed_rows,
-        "failed_rows":  total - passed_rows,
+        "failed_rows":  unique_failed,
         "rule_results": rule_results,
     }
 
 
-# Query 1: Score summary across all datasets 
+# ── Query 1: Score summary across all datasets ────────────────────────────────
 
 def score_summary() -> pd.DataFrame:
     """
-    Returns a summary of quality scores for all datasets.
+    Returns quality score summary for all datasets.
     Answers: which dataset has the best/worst quality?
     """
     rows = []
@@ -99,7 +145,7 @@ def score_summary() -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values("score", ascending=False)
 
 
-# Query 2: Rule failure rates across all datasets
+# ── Query 2: Rule failure rates across all datasets ───────────────────────────
 
 def rule_failure_rates() -> pd.DataFrame:
     """
@@ -129,7 +175,7 @@ def rule_failure_rates() -> pd.DataFrame:
             "total_failed":     data["total_failed"],
             "failure_rate_pct": round(
                 data["total_failed"] / data["total_rows"] * 100, 2
-            ) if data["total_rows"] > 0 else 0
+            ) if data["total_rows"] > 0 else 0,
         })
 
     return pd.DataFrame(rows).sort_values("failure_rate_pct", ascending=False)
@@ -140,7 +186,7 @@ def rule_failure_rates() -> pd.DataFrame:
 def quality_trend(dataset_name: str = "mixed_data", days: int = 7) -> pd.DataFrame:
     """
     Simulates quality score trend over the past N days for a dataset.
-    In production this reads from the DB — here it uses sample data.
+    In production this reads from quality_reports table in PostgreSQL.
     Answers: is quality improving or declining?
     """
     path = DATASETS.get(dataset_name)
@@ -151,48 +197,45 @@ def quality_trend(dataset_name: str = "mixed_data", days: int = 7) -> pd.DataFra
     total = len(df)
     rows  = []
 
-    # Simulate trend by checking random subsets over time
-    import random
     random.seed(42)
 
     for i in range(days):
-        date      = (datetime.now() - timedelta(days=days - i)).strftime("%Y-%m-%d")
-        # Slightly vary the sample to simulate change over time
-        sample    = df.sample(n=min(total, max(10, total - random.randint(0, 5))),
-                              random_state=i)
-        result    = score_dataframe(sample)
+        date   = (datetime.now() - timedelta(days=days - i)).strftime("%Y-%m-%d")
+        sample = df.sample(
+            n=min(total, max(10, total - random.randint(0, 5))),
+            random_state=i
+        )
+        result = score_dataframe(sample)
         rows.append({
-            "date":    date,
-            "dataset": dataset_name,
-            "score":   result["score"],
+            "date":         date,
+            "dataset":      dataset_name,
+            "score":        result["score"],
             "checked_rows": result["total_rows"],
         })
 
     return pd.DataFrame(rows)
 
 
-# Query 4: Worst datasets 
+# ── Query 4: Worst datasets ───────────────────────────────────────────────────
 
 def worst_datasets(top_n: int = 3) -> pd.DataFrame:
     """
     Returns the N datasets with the lowest quality scores.
     Answers: which datasets need the most attention?
     """
-    summary = score_summary()
-    return summary.nsmallest(top_n, "score")
+    return score_summary().nsmallest(top_n, "score")
 
 
-# Query 5: Monthly summary 
+# ── Query 5: Monthly summary ──────────────────────────────────────────────────
 
 def monthly_summary() -> pd.DataFrame:
     """
-    Simulates a monthly quality summary across datasets.
-    In production this reads from the DB.
+    Simulates monthly quality summary across datasets.
+    In production this reads from quality_reports table grouped by month.
     """
-    rows = []
+    rows   = []
     months = ["2024-10", "2024-11", "2024-12", "2025-01"]
 
-    import random
     random.seed(99)
 
     for dataset_name, path in DATASETS.items():
@@ -203,9 +246,8 @@ def monthly_summary() -> pd.DataFrame:
         base   = result["score"]
 
         for month in months:
-            # Simulate slight variation month over month
             variation = random.uniform(-5, 5)
-            score     = round(min(100, max(0, base + variation)), 2)
+            score     = max(0, min(100, round(base + variation)))
             rows.append({
                 "month":   month,
                 "dataset": dataset_name,
@@ -215,7 +257,7 @@ def monthly_summary() -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values(["dataset", "month"])
 
 
-# Quick test
+# ── Quick test ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     print("\n=== Score Summary ===")

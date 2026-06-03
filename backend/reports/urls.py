@@ -1,18 +1,31 @@
-"""
-reports/urls.py
-────────────────────────────────────────────────────────────────────────────────
-TODO: register your reports URL patterns here.
-This file is already included in api/urls.py.
+"""reports/urls.py — mounted via api/urls.py"""
 
-Example:
-    from django.urls import path
-    from .views import MyListView, MyDetailView
+from django.urls import path
 
-    urlpatterns = [
-        path("",       MyListView.as_view(),   name="reports-list"),
-        path("<int:pk>/", MyDetailView.as_view(), name="reports-detail"),
-    ]
-"""
+from .views import DashboardView, ReportDetailView, ReportListView, TrendView
 
-# Placeholder — no routes yet.
-urlpatterns: list = []
+urlpatterns = [
+    # Quality Report API
+    path(
+        "datasets/<uuid:dataset_id>/reports/",
+        ReportListView.as_view(),
+        name="report-list",
+    ),
+    path(
+        "reports/<uuid:report_id>/",
+        ReportDetailView.as_view(),
+        name="report-detail",
+    ),
+    # Trend API
+    path(
+        "datasets/<uuid:dataset_id>/trends/",
+        TrendView.as_view(),
+        name="trend-list",
+    ),
+    # Dashboard API
+    path(
+        "dashboard/",
+        DashboardView.as_view(),
+        name="dashboard",
+    ),
+]
