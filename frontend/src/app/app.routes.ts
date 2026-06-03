@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
- import { roleGuard, roleRedirectGuard } from './core/guards/role.guard';
+import { roleGuard, roleRedirectGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -98,9 +98,9 @@ export const routes: Routes = [
           {
             path: 'quality-thresholds',
             loadComponent: () =>
-              import(
-                './features/dashboard/settings/panels/quality-thresholds/quality-thresholds'
-              ).then((m) => m.QualityThresholdsComponent),
+              import('./features/dashboard/settings/panels/quality-thresholds/quality-thresholds').then(
+                (m) => m.QualityThresholdsComponent,
+              ),
           },
           {
             path: 'general',
