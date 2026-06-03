@@ -31,7 +31,7 @@ export class TopbarComponent {
   protected readonly roleLabel = computed(() => {
     const u = this.user();
     if (!u) return '';
-    return u.role === 'admin' ? 'Administrator' : 'Data Engineer';
+    return u.role === 'admin' ? 'Administrator' : 'User';
   });
 
   protected toggleTheme(): void {
