@@ -279,7 +279,7 @@ class TestScoreHistoryPreserved:
         auth_client.post(RUN_CHECK_URL_TPL.format(did))
 
         reports = auth_client.get(f"/api/v1/datasets/{did}/reports/").json()
-        assert len(reports) == 2
+        assert reports["count"] == 2
 
 
 # ── Auth and ownership ────────────────────────────────────────────────────────

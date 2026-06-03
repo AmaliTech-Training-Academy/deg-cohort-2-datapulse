@@ -27,6 +27,7 @@ def csv_payload(content=VALID_CSV, name="data.csv"):
 
 @pytest.fixture
 def uploaded(auth_client, settings, tmp_path):
+    """Upload a valid CSV and return the response dict."""
     settings.MEDIA_ROOT = str(tmp_path)
     resp = auth_client.post(UPLOAD_URL, csv_payload(), format="multipart")
     assert resp.status_code == 201
@@ -38,15 +39,16 @@ def uploaded(auth_client, settings, tmp_path):
 
 @pytest.mark.django_db
 class TestDatasetUpload:
-    def test_upload_csv_returns_201(self, auth_client, settings, tmp_path):
-        settings.MEDIA_ROOT = str(tmp_path)
-        resp = auth_client.post(UPLOAD_URL, csv_payload(), format="multipart")
-        assert resp.status_code == 201
+    """
+    Upload-specific assertions all share the `uploaded` fixture so MEDIA_ROOT
+    is configured and the POST runs exactly once per test, not once per assertion.
+    """
 
-    def test_response_contains_expected_fields(self, auth_client, settings, tmp_path):
-        settings.MEDIA_ROOT = str(tmp_path)
-        resp = auth_client.post(UPLOAD_URL, csv_payload(), format="multipart")
-        data = resp.json()
+    def test_upload_csv_returns_201(self, uploaded):
+        # Status code already asserted inside the fixture; confirm data present.
+        assert uploaded["id"] is not None
+
+    def test_response_contains_expected_fields(self, uploaded):
         for field in (
             "id",
             "file_name",
@@ -55,22 +57,16 @@ class TestDatasetUpload:
             "columns",
             "created_at",
         ):
-            assert field in data
+            assert field in uploaded
 
-    def test_file_path_not_in_response(self, auth_client, settings, tmp_path):
-        settings.MEDIA_ROOT = str(tmp_path)
-        resp = auth_client.post(UPLOAD_URL, csv_payload(), format="multipart")
-        assert "file_path" not in resp.json()
+    def test_file_path_not_in_response(self, uploaded):
+        assert "file_path" not in uploaded
 
-    def test_row_count_correct(self, auth_client, settings, tmp_path):
-        settings.MEDIA_ROOT = str(tmp_path)
-        resp = auth_client.post(UPLOAD_URL, csv_payload(), format="multipart")
-        assert resp.json()["row_count"] == 3
+    def test_row_count_correct(self, uploaded):
+        assert uploaded["row_count"] == 3
 
-    def test_columns_extracted(self, auth_client, settings, tmp_path):
-        settings.MEDIA_ROOT = str(tmp_path)
-        resp = auth_client.post(UPLOAD_URL, csv_payload(), format="multipart")
-        assert set(resp.json()["columns"]) == {"id", "age", "email", "score"}
+    def test_columns_extracted(self, uploaded):
+        assert set(uploaded["columns"]) == {"id", "age", "email", "score"}
 
     def test_upload_json_returns_201(self, auth_client, settings, tmp_path):
         settings.MEDIA_ROOT = str(tmp_path)
@@ -101,9 +97,13 @@ class TestDatasetUpload:
 
     def test_oversized_file_returns_400(self, auth_client, settings, tmp_path):
         settings.MEDIA_ROOT = str(tmp_path)
-        # Use a real oversized file mock
         from unittest.mock import MagicMock
-        from datasets.services.file_service import MAX_FILE_SIZE_BYTES
+
+        from datasets.services.file_service import (
+            MAX_FILE_SIZE_BYTES,
+            FileUploadService,
+        )
+        from rest_framework.exceptions import ValidationError
 
         mock_file = MagicMock()
         mock_file.size = MAX_FILE_SIZE_BYTES + 1
@@ -111,9 +111,6 @@ class TestDatasetUpload:
         mock_file.read.return_value = b"id,name\n1,x\n"
         mock_file.seek = lambda x: None
         mock_file.chunks.return_value = [b"id,name\n1,x\n"]
-
-        from datasets.services.file_service import FileUploadService
-        from rest_framework.exceptions import ValidationError
 
         svc = FileUploadService()
         with pytest.raises(ValidationError, match="MB limit"):
@@ -131,12 +128,13 @@ class TestDatasetList:
 
     def test_list_empty_initially(self, auth_client):
         resp = auth_client.get(LIST_URL)
-        assert resp.json() == []
+        assert resp.json()["count"] == 0
+        assert resp.json()["results"] == []
 
     def test_list_shows_uploaded_dataset(self, auth_client, uploaded):
         resp = auth_client.get(LIST_URL)
-        assert len(resp.json()) == 1
-        assert resp.json()[0]["id"] == uploaded["id"]
+        ids = [d["id"] for d in resp.json()["results"]]
+        assert uploaded["id"] in ids
 
     def test_list_isolated_per_user(
         self, auth_client, uploaded, api_client, admin_user
@@ -146,7 +144,8 @@ class TestDatasetList:
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.get(LIST_URL)
-        assert resp.json() == []
+        assert resp.json()["count"] == 0
+        assert resp.json()["results"] == []
 
     def test_unauthenticated_list_returns_401(self, api_client):
         resp = api_client.get(LIST_URL)
