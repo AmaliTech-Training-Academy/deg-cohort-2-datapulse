@@ -12,10 +12,10 @@ import os
 os.environ.setdefault("DEBUG", "True")
 os.environ.setdefault("LOG_LEVEL", "INFO")
 
-import pytest
-from django.contrib.auth import get_user_model
-from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import RefreshToken
+import pytest  # noqa: E402
+from django.contrib.auth import get_user_model  # noqa: E402
+from rest_framework.test import APIClient  # noqa: E402
+from rest_framework_simplejwt.tokens import RefreshToken  # noqa: E402
 
 User = get_user_model()
 

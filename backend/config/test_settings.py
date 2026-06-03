@@ -13,7 +13,7 @@ os.environ.setdefault("DEBUG", "True")
 os.environ.setdefault("LOG_LEVEL", "INFO")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
 
-from .settings import *  # noqa: F401, F403
+from .settings import *  # noqa: E402, F401, F403
 
 # ── Database ──────────────────────────────────────────────────────────────────
 # Use SQLite in-memory so tests run without a running PostgreSQL server.
