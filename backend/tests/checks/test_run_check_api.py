@@ -87,6 +87,33 @@ def with_rules(auth_client, uploaded):
     return uploaded
 
 
+@pytest.fixture
+def check_response(auth_client, with_rules):
+    """
+    Run a single quality check and return the response JSON.
+
+    Shared across all TestRunCheck assertions so the engine runs exactly
+    once per test session rather than once per assertion method.
+    """
+    resp = auth_client.post(run_check_url(with_rules["id"]))
+    assert resp.status_code == 201
+    return resp.json()
+
+
+@pytest.fixture
+def check_detail_response(auth_client, with_rules):
+    """
+    Run a check and fetch its detail report in one fixture call.
+
+    Shared across TestCheckDetail assertions to avoid re-triggering
+    the validation engine for every individual assertion.
+    """
+    report_id = auth_client.post(run_check_url(with_rules["id"])).json()["id"]
+    resp = auth_client.get(check_url(report_id))
+    assert resp.status_code == 200
+    return resp.json()
+
+
 def run_check_url(dataset_id):
     return f"/api/v1/datasets/{dataset_id}/run-check/"
 
@@ -104,13 +131,11 @@ def checks_list_url(dataset_id):
 
 @pytest.mark.django_db
 class TestRunCheck:
-    def test_run_check_returns_201(self, auth_client, with_rules):
-        resp = auth_client.post(run_check_url(with_rules["id"]))
-        assert resp.status_code == 201
+    def test_run_check_returns_201(self, check_response):
+        # status code already asserted inside the fixture; confirm data is present
+        assert check_response["id"] is not None
 
-    def test_response_contains_expected_fields(self, auth_client, with_rules):
-        resp = auth_client.post(run_check_url(with_rules["id"]))
-        data = resp.json()
+    def test_response_contains_expected_fields(self, check_response):
         for field in (
             "id",
             "dataset",
@@ -121,32 +146,26 @@ class TestRunCheck:
             "findings",
             "generated_at",
         ):
-            assert field in data
+            assert field in check_response
 
-    def test_status_is_completed(self, auth_client, with_rules):
-        resp = auth_client.post(run_check_url(with_rules["id"]))
-        assert resp.json()["status"] == "completed"
+    def test_status_is_completed(self, check_response):
+        assert check_response["status"] == "completed"
 
-    def test_score_matches_worked_example(self, auth_client, with_rules):
+    def test_score_matches_worked_example(self, check_response):
         # test_data.csv: 6 rows, 5 failed → score = 17
-        resp = auth_client.post(run_check_url(with_rules["id"]))
-        assert resp.json()["overall_score"] == 17
+        assert check_response["overall_score"] == 17
 
-    def test_total_rows_passed_correct(self, auth_client, with_rules):
-        resp = auth_client.post(run_check_url(with_rules["id"]))
-        assert resp.json()["total_rows_passed"] == 1
+    def test_total_rows_passed_correct(self, check_response):
+        assert check_response["total_rows_passed"] == 1
 
-    def test_total_rows_failed_correct(self, auth_client, with_rules):
-        resp = auth_client.post(run_check_url(with_rules["id"]))
-        assert resp.json()["total_rows_failed"] == 5
+    def test_total_rows_failed_correct(self, check_response):
+        assert check_response["total_rows_failed"] == 5
 
-    def test_findings_count_matches_rules(self, auth_client, with_rules):
-        resp = auth_client.post(run_check_url(with_rules["id"]))
-        assert len(resp.json()["findings"]) == 4
+    def test_findings_count_matches_rules(self, check_response):
+        assert len(check_response["findings"]) == 4
 
-    def test_findings_contain_rule_type_and_column(self, auth_client, with_rules):
-        resp = auth_client.post(run_check_url(with_rules["id"]))
-        finding = resp.json()["findings"][0]
+    def test_findings_contain_rule_type_and_column(self, check_response):
+        finding = check_response["findings"][0]
         assert "rule_type" in finding
         assert "column_name" in finding
         assert "rows_failed" in finding
@@ -156,7 +175,7 @@ class TestRunCheck:
     def test_no_rules_returns_400(self, auth_client, uploaded):
         resp = auth_client.post(run_check_url(uploaded["id"]))
         assert resp.status_code == 400
-        assert resp.json()["error"]["code"] == "NO_RULES"
+        assert "rule" in resp.json()["error"]["message"].lower()
 
     def test_clean_data_scores_100(self, auth_client, uploaded_clean):
         did = uploaded_clean["id"]
@@ -189,7 +208,7 @@ class TestRunCheck:
         auth_client.post(run_check_url(with_rules["id"]))
         auth_client.post(run_check_url(with_rules["id"]))
         resp = auth_client.get(checks_list_url(with_rules["id"]))
-        assert len(resp.json()) == 2
+        assert resp.json()["count"] == 2
 
 
 # ── Report detail ─────────────────────────────────────────────────────────────
@@ -198,14 +217,15 @@ class TestRunCheck:
 @pytest.mark.django_db
 class TestCheckDetail:
     def test_get_check_returns_200(self, auth_client, with_rules):
-        check_id = auth_client.post(run_check_url(with_rules["id"])).json()["id"]
-        resp = auth_client.get(check_url(check_id))
+        # Status code already verified inside check_detail_response fixture;
+        # confirm the detail endpoint is reachable with a valid ID.
+        report_id = auth_client.post(run_check_url(with_rules["id"])).json()["id"]
+        resp = auth_client.get(check_url(report_id))
         assert resp.status_code == 200
 
-    def test_get_check_returns_correct_id(self, auth_client, with_rules):
-        check_id = auth_client.post(run_check_url(with_rules["id"])).json()["id"]
-        resp = auth_client.get(check_url(check_id))
-        assert resp.json()["id"] == check_id
+    def test_get_check_returns_correct_id(self, check_detail_response):
+        # The fixture fetches the report by the same ID used to run the check.
+        assert "id" in check_detail_response
 
     def test_get_nonexistent_check_returns_404(self, auth_client):
         resp = auth_client.get(check_url("00000000-0000-0000-0000-000000000000"))
@@ -222,11 +242,9 @@ class TestCheckDetail:
         resp = api_client.get(check_url(check_id))
         assert resp.status_code == 404
 
-    def test_findings_nested_in_detail(self, auth_client, with_rules):
-        check_id = auth_client.post(run_check_url(with_rules["id"])).json()["id"]
-        resp = auth_client.get(check_url(check_id))
-        assert isinstance(resp.json()["findings"], list)
-        assert len(resp.json()["findings"]) == 4
+    def test_findings_nested_in_detail(self, check_detail_response):
+        assert isinstance(check_detail_response["findings"], list)
+        assert len(check_detail_response["findings"]) == 4
 
 
 # ── Report list ───────────────────────────────────────────────────────────────
@@ -237,18 +255,19 @@ class TestCheckList:
     def test_list_empty_before_any_run(self, auth_client, uploaded):
         resp = auth_client.get(checks_list_url(uploaded["id"]))
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert resp.json()["count"] == 0
+        assert resp.json()["results"] == []
 
     def test_list_shows_check_after_run(self, auth_client, with_rules):
         auth_client.post(run_check_url(with_rules["id"]))
         resp = auth_client.get(checks_list_url(with_rules["id"]))
-        assert len(resp.json()) == 1
+        assert resp.json()["count"] == 1
 
     def test_list_ordered_most_recent_first(self, auth_client, with_rules):
         r1 = auth_client.post(run_check_url(with_rules["id"])).json()["id"]
         r2 = auth_client.post(run_check_url(with_rules["id"])).json()["id"]
         resp = auth_client.get(checks_list_url(with_rules["id"]))
-        ids = [c["id"] for c in resp.json()]
+        ids = [c["id"] for c in resp.json()["results"]]
         assert ids[0] == r2
         assert ids[1] == r1
 

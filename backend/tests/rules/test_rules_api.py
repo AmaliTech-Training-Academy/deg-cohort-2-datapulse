@@ -179,7 +179,8 @@ class TestListRules:
     def test_list_empty_initially(self, auth_client, uploaded):
         resp = auth_client.get(rules_url(uploaded["id"]))
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert resp.json()["count"] == 0
+        assert resp.json()["results"] == []
 
     def test_list_returns_created_rules(self, auth_client, uploaded):
         auth_client.post(
@@ -188,7 +189,7 @@ class TestListRules:
             format="json",
         )
         resp = auth_client.get(rules_url(uploaded["id"]))
-        assert len(resp.json()) == 1
+        assert resp.json()["count"] == 1
 
     def test_list_returns_all_rules(self, auth_client, uploaded):
         for col, rt, rc in [
@@ -202,7 +203,7 @@ class TestListRules:
                 format="json",
             )
         resp = auth_client.get(rules_url(uploaded["id"]))
-        assert len(resp.json()) == 3
+        assert resp.json()["count"] == 3
 
     def test_list_other_user_dataset_returns_404(
         self, api_client, admin_user, uploaded
