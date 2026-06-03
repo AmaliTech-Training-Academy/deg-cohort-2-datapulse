@@ -1,13 +1,14 @@
 """
 datasets/views.py
 ────────────────────────────────────────────────────────────────────────────────
-DatasetUploadView   POST   /api/v1/datasets/
-DatasetListView     GET    /api/v1/datasets/
-DatasetDetailView   GET    /api/v1/datasets/<id>/
-DatasetDeleteView   DELETE /api/v1/datasets/<id>/
+DatasetUploadView      POST   /api/v1/datasets/upload/
+DatasetListView        GET    /api/v1/datasets/
+DatasetDetailView      GET    /api/v1/datasets/<id>/
+DatasetDetailView      DELETE /api/v1/datasets/<id>/
+DatasetFileUpdateView  PATCH  /api/v1/datasets/<id>/file/
 
-MultiPartParser is declared on the upload view so DRF knows to expect a
-multipart/form-data body. All other views use the default JSON parser.
+MultiPartParser is declared on upload and file-update views so DRF knows to
+expect a multipart/form-data body. All other views use the default JSON parser.
 """
 
 import logging
@@ -21,7 +22,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Dataset
-from .serializers import DatasetResponseSerializer, DatasetUploadSerializer
+from .serializers import (
+    DatasetFileReplaceResponseSerializer,
+    DatasetFileUpdateSerializer,
+    DatasetResponseSerializer,
+    DatasetUploadSerializer,
+)
 from .services.file_service import FileUploadService
 
 logger = logging.getLogger(__name__)
@@ -151,3 +157,93 @@ class DatasetDetailView(APIView):
 
         logger.info("Dataset deleted: id=%s user=%s", dataset_id, request.user.email)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DatasetFileUpdateView(APIView):
+    """
+    PATCH /api/v1/datasets/<id>/file/
+
+    Replace the physical file for an existing dataset while preserving its
+    full QualityReport history.  All prior reports remain attached to the
+    same dataset.id — the score history is never lost.
+
+    What changes after a successful replacement:
+        file_name     — original filename of the new upload
+        file_type     — re-detected from content (csv | json)
+        row_count     — row count of the new file
+        columns       — column list of the new file
+        file_version  — incremented by 1 (starts at 1 on original upload)
+        updated_at    — set to now
+
+    What stays the same:
+        id            — same UUID, all FK relationships preserved
+        file_title    — unchanged (the human-readable name the user gave)
+        description   — unchanged
+        all QualityReport / RuleFinding / TrendMetric rows
+
+    Response includes stale_rule_columns — any column names that existed in
+    the previous file but are absent from the new one.  ValidationRules
+    targeting those columns will no longer match a real column and should be
+    reviewed or deleted before the next run-check call.
+
+    Returns 200 on success, 400 on file validation failure, 404 if the
+    dataset does not belong to the authenticated user.
+    """
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "format": "binary",
+                        "description": "Replacement CSV or JSON file",
+                    },
+                },
+                "required": ["file"],
+            }
+        },
+        responses={200: DatasetFileReplaceResponseSerializer},
+        summary="Replace the file for an existing dataset",
+        description=(
+            "Upload a new CSV or JSON file to replace the current one. "
+            "All previous quality reports and scores are preserved. "
+            "file_version is incremented. "
+            "stale_rule_columns in the response lists any columns from the "
+            "old file that no longer exist in the new file — review those "
+            "validation rules before running the next quality check."
+        ),
+    )
+    def patch(self, request: Request, dataset_id: str) -> Response:
+        try:
+            dataset = Dataset.objects.get(id=dataset_id, user=request.user)
+        except Dataset.DoesNotExist:
+            from rest_framework.exceptions import NotFound
+
+            raise NotFound("Dataset not found.")
+
+        serializer = DatasetFileUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        service = FileUploadService()
+        dataset, _df, stale_columns = service.replace(
+            dataset=dataset,
+            file=serializer.validated_data["file"],
+        )
+
+        response_data = DatasetFileReplaceResponseSerializer(dataset).data
+        # stale_rule_columns is not a model field — inject it into the response
+        response_data["stale_rule_columns"] = stale_columns
+
+        logger.info(
+            "Dataset file updated: id=%s user=%s version=%d",
+            dataset_id,
+            request.user.email,
+            dataset.file_version,
+        )
+
+        return Response(response_data, status=status.HTTP_200_OK)
