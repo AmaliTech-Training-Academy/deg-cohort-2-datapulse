@@ -16,12 +16,12 @@ UPLOAD_URL = "/api/v1/datasets/upload/"
 # 6 rows, intentional quality issues on rows 2-6 → score = 17
 TEST_CSV = (
     b"id,age,email,score\n"
-    b"1,25,alice@test.com,88\n"   # row 1 — passes all
-    b"2,,bob@test.com,92\n"        # row 2 — age null (range fails)
-    b"3,31,,75\n"                   # row 3 — email null
-    b"4,-5,dave@test.com,101\n"    # row 4 — age below 0
-    b"5,40,eve@test.com,60\n"      # row 5 — id duplicate
-    b"5,45,frank@test.com,55\n"    # row 6 — id duplicate
+    b"1,25,alice@test.com,88\n"  # row 1 — passes all
+    b"2,,bob@test.com,92\n"  # row 2 — age null (range fails)
+    b"3,31,,75\n"  # row 3 — email null
+    b"4,-5,dave@test.com,101\n"  # row 4 — age below 0
+    b"5,40,eve@test.com,60\n"  # row 5 — id duplicate
+    b"5,45,frank@test.com,55\n"  # row 6 — id duplicate
 )
 
 CLEAN_CSV = (
@@ -56,10 +56,34 @@ def uploaded_clean(auth_client, settings, tmp_path):
 def with_rules(auth_client, uploaded):
     did = uploaded["id"]
     base = f"/api/v1/datasets/{did}/rules/"
-    auth_client.post(base, {"column_name": "email", "rule_type": "null_check", "rule_config": {}}, format="json")
-    auth_client.post(base, {"column_name": "age", "rule_type": "range_check", "rule_config": {"min": 0, "max": 120}}, format="json")
-    auth_client.post(base, {"column_name": "score", "rule_type": "type_check", "rule_config": {"expected_type": "integer"}}, format="json")
-    auth_client.post(base, {"column_name": "id", "rule_type": "uniqueness_check", "rule_config": {}}, format="json")
+    auth_client.post(
+        base,
+        {"column_name": "email", "rule_type": "null_check", "rule_config": {}},
+        format="json",
+    )
+    auth_client.post(
+        base,
+        {
+            "column_name": "age",
+            "rule_type": "range_check",
+            "rule_config": {"min": 0, "max": 120},
+        },
+        format="json",
+    )
+    auth_client.post(
+        base,
+        {
+            "column_name": "score",
+            "rule_type": "type_check",
+            "rule_config": {"expected_type": "integer"},
+        },
+        format="json",
+    )
+    auth_client.post(
+        base,
+        {"column_name": "id", "rule_type": "uniqueness_check", "rule_config": {}},
+        format="json",
+    )
     return uploaded
 
 
@@ -87,8 +111,16 @@ class TestRunCheck:
     def test_response_contains_expected_fields(self, auth_client, with_rules):
         resp = auth_client.post(run_check_url(with_rules["id"]))
         data = resp.json()
-        for field in ("id", "dataset", "status", "overall_score",
-                      "total_rows_passed", "total_rows_failed", "findings", "generated_at"):
+        for field in (
+            "id",
+            "dataset",
+            "status",
+            "overall_score",
+            "total_rows_passed",
+            "total_rows_failed",
+            "findings",
+            "generated_at",
+        ):
             assert field in data
 
     def test_status_is_completed(self, auth_client, with_rules):
@@ -129,7 +161,11 @@ class TestRunCheck:
     def test_clean_data_scores_100(self, auth_client, uploaded_clean):
         did = uploaded_clean["id"]
         base = f"/api/v1/datasets/{did}/rules/"
-        auth_client.post(base, {"column_name": "email", "rule_type": "null_check", "rule_config": {}}, format="json")
+        auth_client.post(
+            base,
+            {"column_name": "email", "rule_type": "null_check", "rule_config": {}},
+            format="json",
+        )
         resp = auth_client.post(run_check_url(did))
         assert resp.json()["overall_score"] == 100
 
@@ -139,6 +175,7 @@ class TestRunCheck:
 
     def test_other_user_dataset_returns_404(self, api_client, admin_user, with_rules):
         from rest_framework_simplejwt.tokens import RefreshToken
+
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.post(run_check_url(with_rules["id"]))
@@ -174,9 +211,12 @@ class TestCheckDetail:
         resp = auth_client.get(check_url("00000000-0000-0000-0000-000000000000"))
         assert resp.status_code == 404
 
-    def test_get_other_user_check_returns_404(self, api_client, admin_user, auth_client, with_rules):
+    def test_get_other_user_check_returns_404(
+        self, api_client, admin_user, auth_client, with_rules
+    ):
         check_id = auth_client.post(run_check_url(with_rules["id"])).json()["id"]
         from rest_framework_simplejwt.tokens import RefreshToken
+
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.get(check_url(check_id))
@@ -212,8 +252,11 @@ class TestCheckList:
         assert ids[0] == r2
         assert ids[1] == r1
 
-    def test_list_other_user_dataset_returns_404(self, api_client, admin_user, with_rules):
+    def test_list_other_user_dataset_returns_404(
+        self, api_client, admin_user, with_rules
+    ):
         from rest_framework_simplejwt.tokens import RefreshToken
+
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.get(checks_list_url(with_rules["id"]))

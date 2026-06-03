@@ -65,7 +65,7 @@ class TestTypeCheck:
     def test_integer_rejects_float_with_fraction(self):
         eng = make_engine({"age": [1.5, 2.0]})
         failed, _ = eng._check_type("age", {"expected_type": "integer"})
-        assert 0 in failed   # 1.5 fails
+        assert 0 in failed  # 1.5 fails
         assert 1 not in failed  # 2.0 is whole — passes
 
     def test_integer_accepts_whole_number_float(self):

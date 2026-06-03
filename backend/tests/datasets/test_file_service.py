@@ -3,8 +3,6 @@ tests/datasets/test_file_service.py
 Tests for FileUploadService — type detection, parsing, size/row limits.
 """
 
-import io
-
 import pandas as pd
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile

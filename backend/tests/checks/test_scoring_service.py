@@ -3,8 +3,6 @@ tests/checks/test_scoring_service.py
 Tests for QualityScoreCalculator.
 """
 
-import pytest
-
 from checks.services.scoring_service import QualityScoreCalculator
 
 

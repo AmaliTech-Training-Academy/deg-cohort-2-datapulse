@@ -12,14 +12,10 @@ import io
 
 import pytest
 
-from datasets.models import Dataset
-from rules.models import ValidationRule
 
 UPLOAD_URL = "/api/v1/datasets/upload/"
 VALID_CSV = (
-    b"id,age,email,score\n"
-    b"1,25,alice@test.com,88\n"
-    b"2,30,bob@test.com,92\n"
+    b"id,age,email,score\n" b"1,25,alice@test.com,88\n" b"2,30,bob@test.com,92\n"
 )
 
 
@@ -99,7 +95,11 @@ class TestCreateRule:
     def test_invalid_column_returns_400(self, auth_client, uploaded):
         resp = auth_client.post(
             rules_url(uploaded["id"]),
-            {"column_name": "nonexistent", "rule_type": "null_check", "rule_config": {}},
+            {
+                "column_name": "nonexistent",
+                "rule_type": "null_check",
+                "rule_config": {},
+            },
             format="json",
         )
         assert resp.status_code == 400
@@ -160,6 +160,7 @@ class TestCreateRule:
 
     def test_other_user_dataset_returns_404(self, api_client, admin_user, uploaded):
         from rest_framework_simplejwt.tokens import RefreshToken
+
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.post(
@@ -203,8 +204,11 @@ class TestListRules:
         resp = auth_client.get(rules_url(uploaded["id"]))
         assert len(resp.json()) == 3
 
-    def test_list_other_user_dataset_returns_404(self, api_client, admin_user, uploaded):
+    def test_list_other_user_dataset_returns_404(
+        self, api_client, admin_user, uploaded
+    ):
         from rest_framework_simplejwt.tokens import RefreshToken
+
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.get(rules_url(uploaded["id"]))
@@ -231,7 +235,9 @@ class TestRuleDetail:
         resp = auth_client.get(rule_url("00000000-0000-0000-0000-000000000000"))
         assert resp.status_code == 404
 
-    def test_get_other_user_rule_returns_404(self, api_client, admin_user, auth_client, uploaded):
+    def test_get_other_user_rule_returns_404(
+        self, api_client, admin_user, auth_client, uploaded
+    ):
         create = auth_client.post(
             rules_url(uploaded["id"]),
             {"column_name": "email", "rule_type": "null_check", "rule_config": {}},
@@ -239,6 +245,7 @@ class TestRuleDetail:
         )
         rule_id = create.json()["id"]
         from rest_framework_simplejwt.tokens import RefreshToken
+
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.get(rule_url(rule_id))
@@ -315,7 +322,9 @@ class TestDeleteRule:
         resp = auth_client.get(rule_url(rule_id))
         assert resp.status_code == 404
 
-    def test_delete_other_user_rule_returns_404(self, api_client, admin_user, auth_client, uploaded):
+    def test_delete_other_user_rule_returns_404(
+        self, api_client, admin_user, auth_client, uploaded
+    ):
         create = auth_client.post(
             rules_url(uploaded["id"]),
             {"column_name": "email", "rule_type": "null_check", "rule_config": {}},
@@ -323,12 +332,15 @@ class TestDeleteRule:
         )
         rule_id = create.json()["id"]
         from rest_framework_simplejwt.tokens import RefreshToken
+
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.delete(rule_url(rule_id))
         assert resp.status_code == 404
 
-    def test_unauthenticated_delete_returns_401(self, api_client, auth_client, uploaded):
+    def test_unauthenticated_delete_returns_401(
+        self, api_client, auth_client, uploaded
+    ):
         create = auth_client.post(
             rules_url(uploaded["id"]),
             {"column_name": "email", "rule_type": "null_check", "rule_config": {}},

@@ -54,9 +54,7 @@ REPLACEMENT_CSV_SAME_COLS = (
 
 # Drops the `score` column — should surface as stale
 REPLACEMENT_CSV_FEWER_COLS = (
-    b"id,age,email\n"
-    b"10,40,dave@test.com\n"
-    b"11,45,eve@test.com\n"
+    b"id,age,email\n" b"10,40,dave@test.com\n" b"11,45,eve@test.com\n"
 )
 
 # JSON replacement — same logical columns
