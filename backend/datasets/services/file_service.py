@@ -11,9 +11,15 @@ Responsibilities:
     4. Save file to disk with a UUID filename to prevent collisions
     5. Create and return the Dataset record
 
-Called by DatasetUploadView — no Django request object inside this class,
-only primitives and the InMemoryUploadedFile / TemporaryUploadedFile object
-that DRF passes from MultiPartParser.
+replace() additionally:
+    6. Atomically swap the physical file and update dataset metadata
+    7. Increment file_version so callers can track which generation of data
+       a QualityReport was run against
+    8. Flag any ValidationRule whose column_name no longer exists in the
+       new file's columns (stale rules do not block the replacement)
+
+Called by DatasetUploadView and DatasetFileUpdateView — no Django request
+object inside this class, only primitives and the uploaded file object.
 """
 
 import logging
@@ -88,6 +94,89 @@ class FileUploadService:
         )
 
         return dataset, df
+
+    def replace(self, dataset, file) -> tuple:
+        """
+        Replace the physical file on an existing Dataset record.
+
+        All prior QualityReport records are preserved — they remain FK'd to
+        the same dataset.id so the full score history survives the replacement.
+
+        Steps
+        -----
+        1. Validate + parse the new file (same rules as upload)
+        2. Save new file to disk
+        3. Delete the old file from disk
+        4. Update dataset metadata in a single .save() call:
+             file_name, file_type, file_path, row_count, columns, file_version+1
+        5. Return (updated dataset, new DataFrame, stale_columns)
+           where stale_columns is the list of column names that existed in the
+           old file but are absent from the new one — the view surfaces these
+           as a warning so the caller knows which rules need attention.
+
+        Parameters
+        ----------
+        dataset : Dataset instance (already ownership-checked by the view)
+        file    : InMemoryUploadedFile or TemporaryUploadedFile from DRF
+
+        Returns
+        -------
+        (Dataset, pd.DataFrame, list[str])
+
+        Raises
+        ------
+        ValidationError for any problem that should return HTTP 400.
+        """
+        self._check_size(file)
+        new_file_type = self._detect_type(file)
+        new_file_path = self._save_to_disk(file, dataset.user_id, new_file_type)
+
+        try:
+            df = self._parse(new_file_path, new_file_type)
+        except Exception as exc:
+            self._remove_file(new_file_path)
+            raise ValidationError({"file": f"Could not parse file: {exc}"}) from exc
+
+        self._check_rows(df, new_file_path)
+
+        # Identify rules that reference columns no longer in the new file
+        old_columns = set(dataset.columns or [])
+        new_columns = set(df.columns.tolist())
+        stale_columns = sorted(old_columns - new_columns)
+
+        # Remove the old physical file after the new one is safely on disk
+        old_file_path = dataset.file_path
+        self._remove_file(old_file_path)
+
+        # Atomically update all file-derived metadata + bump version
+        dataset.file_name = file.name
+        dataset.file_type = new_file_type
+        dataset.file_path = new_file_path
+        dataset.row_count = len(df)
+        dataset.columns = df.columns.tolist()
+        dataset.file_version = dataset.file_version + 1
+        dataset.save(
+            update_fields=[
+                "file_name",
+                "file_type",
+                "file_path",
+                "row_count",
+                "columns",
+                "file_version",
+                "updated_at",
+            ]
+        )
+
+        logger.info(
+            "Dataset file replaced: id=%s user=%s version=%d rows=%d stale_columns=%s",
+            dataset.id,
+            dataset.user.email,
+            dataset.file_version,
+            len(df),
+            stale_columns or "none",
+        )
+
+        return dataset, df, stale_columns
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
