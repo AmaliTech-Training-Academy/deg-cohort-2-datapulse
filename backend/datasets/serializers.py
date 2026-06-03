@@ -51,6 +51,58 @@ class DatasetResponseSerializer(serializers.ModelSerializer):
             "description",
             "row_count",
             "columns",
+            "file_version",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class DatasetFileUpdateSerializer(serializers.Serializer):
+    """
+    Validates the multipart/form-data body for PATCH /api/v1/datasets/<id>/file/.
+
+    Only the file itself is required — title and description are left unchanged
+    unless the client explicitly includes them.
+    """
+
+    file = serializers.FileField(
+        help_text="Replacement CSV or JSON file. Maximum 10 MB, 50,000 rows.",
+    )
+
+
+class DatasetFileReplaceResponseSerializer(serializers.ModelSerializer):
+    """
+    Response shape for a successful file replacement.
+
+    Adds stale_rule_columns — the list of column names that existed in the
+    previous file but are absent from the new one.  Any ValidationRule
+    targeting one of these columns will no longer match a real column and
+    should be reviewed or deleted before the next run-check.
+    """
+
+    stale_rule_columns = serializers.ListField(
+        child=serializers.CharField(),
+        read_only=True,
+        help_text=(
+            "Column names from the previous file that no longer exist in the "
+            "new file. ValidationRules targeting these columns should be "
+            "reviewed before running the next quality check."
+        ),
+    )
+
+    class Meta:
+        model = Dataset
+        fields = [
+            "id",
+            "file_name",
+            "file_type",
+            "file_title",
+            "description",
+            "row_count",
+            "columns",
+            "file_version",
+            "stale_rule_columns",
             "created_at",
             "updated_at",
         ]
