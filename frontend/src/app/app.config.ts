@@ -11,12 +11,19 @@ import { authReducer } from './features/auth/store/auth.reducer';
 import * as authEffects from './features/auth/store/auth.effects';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { errorInterceptor } from './core/interceptors/error.interceptor';
+import { mockAuthInterceptor } from './core/interceptors/mock-auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor])),
+    provideHttpClient(
+      withInterceptors([
+        ...(!environment.production ? [mockAuthInterceptor] : []),
+        authInterceptor,
+        errorInterceptor,
+      ]),
+    ),
     provideStore({ auth: authReducer }),
     provideEffects(authEffects),
     ...(environment.production ? [] : [provideStoreDevtools({ maxAge: 25 })]),

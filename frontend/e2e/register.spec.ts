@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const API_REGISTER = '**/auth/register';
 
-const mockUser = { id: '2', email: 'newuser@example.com', name: 'New User' };
+const mockUser = { id: '2', email: 'newuser@example.com', name: 'New User', role: 'user' };
 
 test.describe('Register page', () => {
   test.beforeEach(async ({ page }) => {
@@ -69,7 +69,7 @@ test.describe('Register page', () => {
     await page.locator('input[type="password"]').fill('securepassword');
     await page.getByRole('button', { name: /create account/i }).click();
 
-    await page.waitForURL('**/dashboard');
+    await page.waitForURL('**/dashboard/**');
     expect(page.url()).toContain('/dashboard');
   });
 

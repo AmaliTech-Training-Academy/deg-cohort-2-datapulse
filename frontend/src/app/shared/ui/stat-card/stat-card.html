@@ -1,0 +1,7 @@
+<div class="stat-card">
+  <p class="stat-card__label">{{ label() }}</p>
+  <p class="stat-card__value" [ngClass]="valueClass()">{{ value() }}</p>
+  @if (subtitle()) {
+    <p class="stat-card__subtitle">{{ subtitle() }}</p>
+  }
+</div>

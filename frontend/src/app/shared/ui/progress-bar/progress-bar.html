@@ -1,0 +1,13 @@
+<div class="progress-bar">
+  <div class="progress-bar__header">
+    <span class="progress-bar__label">{{ label() }}</span>
+    <span class="progress-bar__value">{{ displayPercent() }}</span>
+  </div>
+  <div class="progress-bar__track">
+    <div
+      class="progress-bar__fill"
+      [style.width]="displayPercent()"
+      [style.background-color]="fillColor()"
+    ></div>
+  </div>
+</div>
