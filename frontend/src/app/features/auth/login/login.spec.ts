@@ -5,7 +5,16 @@ import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import * as AuthActions from '../store/auth.actions';
 
-const defaultAuthState = { user: null, loading: false, error: null, forgotPasswordSent: false };
+const defaultAuthState = {
+  user: null,
+  loading: false,
+  error: null,
+  forgotPasswordSent: false,
+  registrationComplete: false,
+  emailVerificationSent: false,
+  emailVerified: false,
+  passwordResetSuccess: false,
+};
 
 describe('LoginComponent', () => {
   async function setup(authState: Partial<typeof defaultAuthState> = {}) {
@@ -34,6 +43,16 @@ describe('LoginComponent', () => {
     const alert = screen.getByRole('alert');
     expect(alert).toBeTruthy();
     expect(alert.textContent).toContain('Invalid credentials');
+  });
+
+  it('shows resend verification button when error mentions email verification', async () => {
+    await setup({ error: 'Email not verified' });
+    expect(screen.getByRole('button', { name: /resend verification/i })).toBeTruthy();
+  });
+
+  it('does NOT show resend button for non-verification errors', async () => {
+    await setup({ error: 'Invalid credentials' });
+    expect(screen.queryByRole('button', { name: /resend verification/i })).toBeNull();
   });
 
   it('disables the submit button when loading', async () => {

@@ -14,9 +14,25 @@ export const routes: Routes = [
       import('./features/auth/register/register').then((m) => m.RegisterComponent),
   },
   {
+    path: 'forgot-password',
+    loadComponent: () =>
+      import('./features/auth/forgot-password/forgot-password').then(
+        (m) => m.ForgotPasswordComponent,
+      ),
+  },
+  {
+    // Reached via link in reset email: /reset-password?uid=...&token=...
     path: 'reset-password',
     loadComponent: () =>
-      import('./features/auth/reset-password/reset-password').then((m) => m.ResetPasswordComponent),
+      import('./features/auth/reset-password/reset-password').then(
+        (m) => m.ResetPasswordComponent,
+      ),
+  },
+  {
+    // Reached via link in verification email: /verify-email?token=...
+    path: 'verify-email',
+    loadComponent: () =>
+      import('./features/auth/verify-email/verify-email').then((m) => m.VerifyEmailComponent),
   },
   {
     path: 'dashboard',
