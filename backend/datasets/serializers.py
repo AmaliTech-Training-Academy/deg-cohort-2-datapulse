@@ -1,8 +1,11 @@
 """
 datasets/serializers.py
 ────────────────────────────────────────────────────────────────────────────────
-DatasetUploadSerializer  — validates the multipart upload request
-DatasetResponseSerializer — shapes the API response (never exposes file_path)
+DatasetUploadSerializer          — validates the multipart upload request
+DatasetResponseSerializer        — shapes the API response (never exposes file_path)
+DatasetMetadataUpdateSerializer  — validates PATCH body for metadata-only update
+DatasetFileUpdateSerializer      — validates multipart file replacement request
+DatasetFileReplaceResponseSerializer — file replacement response with stale_rule_columns
 """
 
 from rest_framework import serializers
@@ -56,6 +59,35 @@ class DatasetResponseSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+
+class DatasetMetadataUpdateSerializer(serializers.Serializer):
+    """
+    Validates the JSON body for PATCH /api/v1/datasets/<id>/.
+
+    Both fields are optional individually — but at least one must be provided.
+    Omitted fields are left unchanged on the dataset record.
+
+    file_title   — human-readable name (max 255 chars)
+    description  — freeform notes
+    """
+
+    file_title = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+    )
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError(
+                "At least one field (file_title or description) must be provided."
+            )
+        return attrs
 
 
 class DatasetFileUpdateSerializer(serializers.Serializer):

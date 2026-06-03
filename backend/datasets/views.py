@@ -4,11 +4,13 @@ datasets/views.py
 DatasetUploadView      POST   /api/v1/datasets/upload/
 DatasetListView        GET    /api/v1/datasets/
 DatasetDetailView      GET    /api/v1/datasets/<id>/
+DatasetDetailView      PATCH  /api/v1/datasets/<id>/
 DatasetDetailView      DELETE /api/v1/datasets/<id>/
 DatasetFileUpdateView  PATCH  /api/v1/datasets/<id>/file/
 
 MultiPartParser is declared on upload and file-update views so DRF knows to
 expect a multipart/form-data body. All other views use the default JSON parser.
+DatasetDetailView.patch accepts JSON (default parser) — no file involved.
 """
 
 import logging
@@ -25,6 +27,7 @@ from .models import Dataset
 from .serializers import (
     DatasetFileReplaceResponseSerializer,
     DatasetFileUpdateSerializer,
+    DatasetMetadataUpdateSerializer,
     DatasetResponseSerializer,
     DatasetUploadSerializer,
 )
@@ -121,6 +124,7 @@ class DatasetListView(APIView):
 class DatasetDetailView(APIView):
     """
     GET    /api/v1/datasets/<id>/
+    PATCH  /api/v1/datasets/<id>/
     DELETE /api/v1/datasets/<id>/
     """
 
@@ -141,6 +145,39 @@ class DatasetDetailView(APIView):
     def get(self, request: Request, dataset_id: str) -> Response:
         dataset = self._get_dataset(dataset_id, request.user)
         return Response(DatasetResponseSerializer(dataset).data)
+
+    @extend_schema(
+        request=DatasetMetadataUpdateSerializer,
+        responses={200: DatasetResponseSerializer},
+        summary="Update dataset metadata",
+        description=(
+            "Update file_title and/or description for an existing dataset. "
+            "At least one field must be provided. "
+            "File content, columns, row_count, and file_version are not affected."
+        ),
+    )
+    def patch(self, request: Request, dataset_id: str) -> Response:
+        dataset = self._get_dataset(dataset_id, request.user)
+
+        serializer = DatasetMetadataUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Only update the fields that were explicitly sent
+        if "file_title" in serializer.validated_data:
+            dataset.file_title = serializer.validated_data["file_title"]
+        if "description" in serializer.validated_data:
+            dataset.description = serializer.validated_data["description"]
+
+        dataset.save(update_fields=["file_title", "description", "updated_at"])
+
+        logger.info(
+            "Dataset metadata updated: id=%s user=%s fields=%s",
+            dataset_id,
+            request.user.email,
+            list(serializer.validated_data.keys()),
+        )
+
+        return Response(DatasetResponseSerializer(dataset).data, status=status.HTTP_200_OK)
 
     @extend_schema(
         responses={204: None},
