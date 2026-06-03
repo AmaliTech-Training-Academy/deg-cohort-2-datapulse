@@ -57,17 +57,21 @@ def admin_user(db) -> User:
 
 
 @pytest.fixture
-def auth_client(api_client: APIClient, regular_user: User) -> APIClient:
+def auth_client(regular_user: User) -> APIClient:
+    """Authenticated client — uses its own APIClient so it never aliases api_client."""
+    client = APIClient()
     token = RefreshToken.for_user(regular_user)
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
-    return api_client
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
+    return client
 
 
 @pytest.fixture
-def admin_client(api_client: APIClient, admin_user: User) -> APIClient:
+def admin_client(admin_user: User) -> APIClient:
+    """Authenticated admin client — uses its own APIClient so it never aliases api_client."""
+    client = APIClient()
     token = RefreshToken.for_user(admin_user)
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
-    return api_client
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
+    return client
 
 
 @pytest.fixture
