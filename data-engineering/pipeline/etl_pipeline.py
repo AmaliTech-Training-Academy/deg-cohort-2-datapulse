@@ -1,14 +1,15 @@
-
-
 """ETL Pipeline for DataPulse analytics (DB → DB version)."""
 
 import os
+import sys
 from datetime import datetime
 
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from data_models import (
     AnalyticsBase,
@@ -122,7 +123,7 @@ class ETLPipeline:
         df["severity"] = df["rule_config"].apply(extract_severity)
         df["checked_at"] = pd.to_datetime(df["generated_at"], utc=True)
 
-        # ── DIM DATASETS (BEFORE rename, using original col names) ───
+        # ── DIM DATASETS ─────────────────────────────
         dim_datasets = (
             df[["dataset_id", "file_name", "file_type", "row_count", "created_at_dataset"]]
             .drop_duplicates(subset="dataset_id")
@@ -133,7 +134,7 @@ class ETLPipeline:
             })
         )
 
-        # ── DIM RULES (BEFORE rename, using original col names) ──────
+        # ── DIM RULES ────────────────────────────────
         dim_rules = (
             df[["rule_id", "column_name", "rule_type", "severity"]]
             .drop_duplicates(subset="rule_id")
@@ -195,36 +196,40 @@ class ETLPipeline:
         session = sessionmaker(bind=self.target_engine)()
 
         try:
-            # clear facts
+            # clear facts only (dims use upsert)
             session.execute(text("TRUNCATE fact_quality_checks RESTART IDENTITY"))
             session.execute(text("TRUNCATE fact_trend_metrics RESTART IDENTITY"))
 
             # ── DIM DATASETS
             dataset_map = {}
             for _, r in self.transformed_data["dim_datasets"].iterrows():
-                obj = DimDataset(
-                    source_id=r["source_id"],
-                    name=r["name"],
-                    file_type=r["file_type"],
-                    row_count=r["row_count"],
-                    uploaded_at=r["uploaded_at"],
-                )
-                session.add(obj)
-                session.flush()
+                obj = session.query(DimDataset).filter_by(source_id=r["source_id"]).first()
+                if not obj:
+                    obj = DimDataset(
+                        source_id=r["source_id"],
+                        name=r["name"],
+                        file_type=r["file_type"],
+                        row_count=r["row_count"],
+                        uploaded_at=r["uploaded_at"],
+                    )
+                    session.add(obj)
+                    session.flush()
                 dataset_map[r["source_id"]] = obj.id
 
             # ── DIM RULES
             rule_map = {}
             for _, r in self.transformed_data["dim_rules"].iterrows():
-                obj = DimRule(
-                    source_id=r["source_id"],
-                    name=r["name"],
-                    field_name=r["field_name"],
-                    rule_type=r["rule_type"],
-                    severity=r["severity"],
-                )
-                session.add(obj)
-                session.flush()
+                obj = session.query(DimRule).filter_by(source_id=r["source_id"]).first()
+                if not obj:
+                    obj = DimRule(
+                        source_id=r["source_id"],
+                        name=r["name"],
+                        field_name=r["field_name"],
+                        rule_type=r["rule_type"],
+                        severity=r["severity"],
+                    )
+                    session.add(obj)
+                    session.flush()
                 rule_map[r["source_id"]] = obj.id
 
             # ── DIM DATE
@@ -233,7 +238,6 @@ class ETLPipeline:
 
             # ── FACT QUALITY
             for _, r in self.transformed_data["fact_checks"].iterrows():
-
                 d_id = dataset_map.get(r["dataset_id"])
                 r_id = rule_map.get(r["rule_id"])
 
