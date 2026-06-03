@@ -25,7 +25,7 @@ import logging
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -79,18 +79,9 @@ class RunCheckView(APIView):
         # 2. Require at least one rule
         rules = ValidationRule.objects.filter(dataset=dataset)
         if not rules.exists():
-            return Response(
-                {
-                    "error": {
-                        "code": "NO_RULES",
-                        "message": (
-                            "No validation rules defined for this dataset. "
-                            "Add at least one rule before running a check."
-                        ),
-                        "fields": {},
-                    }
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+            raise ValidationError(
+                "No validation rules defined for this dataset. "
+                "Add at least one rule before running a check."
             )
 
         # 3. Create report record — status=running immediately
@@ -133,7 +124,14 @@ class RunCheckView(APIView):
             report.overall_score = score_result.overall_score
             report.total_rows_passed = score_result.total_rows_passed
             report.total_rows_failed = score_result.total_rows_failed
-            report.save()
+            report.save(
+                update_fields=[
+                    "status",
+                    "overall_score",
+                    "total_rows_passed",
+                    "total_rows_failed",
+                ]
+            )
 
             # 9. Upsert today's trend snapshot
             TrendMetric.objects.update_or_create(
@@ -153,7 +151,7 @@ class RunCheckView(APIView):
             # Always mark failed — never leave status=running
             report.status = QualityReport.Status.FAILED
             report.error_message = str(exc)
-            report.save()
+            report.save(update_fields=["status", "error_message"])
             logger.exception("Check failed: report=%s error=%s", report.id, exc)
             return Response(
                 {
