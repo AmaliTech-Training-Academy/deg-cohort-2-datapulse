@@ -19,7 +19,8 @@ export class TopbarComponent {
   protected readonly initials = computed(() => {
     const u = this.user();
     if (!u) return '';
-    return u.name
+    return `${u.first_name} ${u.last_name}`
+      .trim()
       .split(' ')
       .map((w) => w[0])
       .slice(0, 2)

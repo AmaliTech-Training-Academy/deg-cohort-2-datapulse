@@ -1,8 +1,16 @@
 import { test, expect } from '@playwright/test';
 
-const API_REGISTER = '**/auth/register';
+const API_REGISTER = '**/v1/auth/register/';
 
-const mockUser = { id: '2', email: 'newuser@example.com', name: 'New User', role: 'user' };
+const mockUser = {
+  id: '2',
+  email: 'newuser@example.com',
+  first_name: 'New',
+  last_name: 'User',
+  role: 'user',
+  created_at: '2026-06-03T00:00:00Z',
+  is_email_verified: false,
+};
 
 test.describe('Register page', () => {
   test.beforeEach(async ({ page }) => {
@@ -35,12 +43,12 @@ test.describe('Register page', () => {
     await expect(page.getByText(/minimum 8 characters/i)).toBeVisible();
   });
 
-  test('shows error alert on duplicate email (409)', async ({ page }) => {
+  test('shows error alert on duplicate email (400)', async ({ page }) => {
     await page.route(API_REGISTER, (route) =>
       route.fulfill({
-        status: 409,
+        status: 400,
         contentType: 'application/json',
-        body: JSON.stringify({ message: 'Email already registered' }),
+        body: JSON.stringify({ email: ['A user with this email already exists.'] }),
       }),
     );
 
@@ -54,12 +62,12 @@ test.describe('Register page', () => {
     await expect(page.url()).toContain('/register');
   });
 
-  test('navigates to /dashboard on successful registration', async ({ page }) => {
+  test('shows check-your-inbox success card after successful registration', async ({ page }) => {
     await page.route(API_REGISTER, (route) =>
       route.fulfill({
-        status: 200,
+        status: 201,
         contentType: 'application/json',
-        body: JSON.stringify({ user: mockUser, token: 'new-user-token' }),
+        body: JSON.stringify(mockUser),
       }),
     );
 
@@ -69,8 +77,8 @@ test.describe('Register page', () => {
     await page.locator('input[type="password"]').fill('securepassword');
     await page.getByRole('button', { name: /create account/i }).click();
 
-    await page.waitForURL('**/dashboard/**');
-    expect(page.url()).toContain('/dashboard');
+    await expect(page.getByText(/check your inbox/i)).toBeVisible();
+    expect(page.url()).toContain('/register');
   });
 
   test('navigates to /login via the sign in link', async ({ page }) => {
