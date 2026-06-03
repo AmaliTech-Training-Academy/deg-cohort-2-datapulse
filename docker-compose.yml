@@ -52,7 +52,7 @@ services:
       POSTGRES_USER: ${ANALYTICS_DB_USER:-analytics_user}
       POSTGRES_PASSWORD: ${ANALYTICS_DB_PASSWORD:-analytics_pass}
     ports:
-      - "5437:5432"
+      - "${ANALYTICS_DB_EXTERNAL_PORT:-5437}:5432"
     volumes:
       - analytics_data:/var/lib/postgresql/data
     healthcheck:
@@ -71,8 +71,8 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: "5432"
-      SOURCE_DB_URL: postgresql://datapulse_user:datapulse_pass@db:5432/datapulse
-      TARGET_DB_URL: postgresql://analytics_user:analytics_pass@analytics_db:5432/datapulse_analytics
+      SOURCE_DB_URL: postgresql://${DB_USER:-datapulse_user}:${DB_PASSWORD:-datapulse_pass}@db:5432/${DB_NAME:-datapulse}
+      TARGET_DB_URL: postgresql://${ANALYTICS_DB_USER:-analytics_user}:${ANALYTICS_DB_PASSWORD:-analytics_pass}@analytics_db:5432/${ANALYTICS_DB_NAME:-datapulse_analytics}
     depends_on:
       db:
         condition: service_healthy
@@ -90,7 +90,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - API_URL=http://localhost:8000
+      - API_URL=http://backend:8000
     depends_on:
       - backend
 
