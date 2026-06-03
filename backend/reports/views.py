@@ -8,16 +8,31 @@ DashboardView     GET  /api/v1/dashboard/
 
 All views require authentication and enforce ownership — a user can only
 see reports and trends for their own datasets.
+
+ReportListView supports:
+    ?status=pending|running|completed|failed
+    ?date_from=YYYY-MM-DD   — reports generated on or after this date
+    ?date_to=YYYY-MM-DD     — reports generated on or before this date
+    ?page=<n>               — page number (default 1)
+    ?page_size=<n>          — items per page (default 20, max 100)
+
+TrendView supports:
+    ?date_from=YYYY-MM-DD   — snapshots on or after this date
+    ?date_to=YYYY-MM-DD     — snapshots on or before this date
 """
 
 import logging
 
 from django.db.models import Prefetch
-from rest_framework.exceptions import NotFound
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from core.pagination import DataPulsePagination
 
 from datasets.models import Dataset
 
@@ -48,10 +63,87 @@ class ReportListView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="status",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter by report status.",
+                required=False,
+                enum=["pending", "running", "completed", "failed"],
+            ),
+            OpenApiParameter(
+                name="date_from",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Return reports generated on or after this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="date_to",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Return reports generated on or before this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number (default 1).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Items per page (default 20, max 100).",
+                required=False,
+            ),
+        ],
+        responses={200: QualityReportSerializer(many=True)},
+        summary="List quality reports for a dataset",
+        description=(
+            "Returns a paginated list of quality reports for a dataset, newest first. "
+            "Findings are not nested in the list response. "
+            "Supports filtering by status and date range."
+        ),
+    )
     def get(self, request: Request, dataset_id: str) -> Response:
         dataset = _get_dataset_for_user(dataset_id, request.user)
-        reports = QualityReport.objects.filter(dataset=dataset)
-        return Response(QualityReportSerializer(reports, many=True).data)
+        queryset = QualityReport.objects.filter(dataset=dataset)
+
+        # Filter: ?status=pending|running|completed|failed
+        report_status = request.query_params.get("status")
+        if report_status:
+            queryset = queryset.filter(status=report_status)
+
+        # Filter: ?date_from=YYYY-MM-DD
+        date_from = request.query_params.get("date_from")
+        if date_from:
+            try:
+                queryset = queryset.filter(generated_at__date__gte=date_from)
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    {"date_from": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # Filter: ?date_to=YYYY-MM-DD
+        date_to = request.query_params.get("date_to")
+        if date_to:
+            try:
+                queryset = queryset.filter(generated_at__date__lte=date_to)
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    {"date_to": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        paginator = DataPulsePagination()
+        page = paginator.paginate_queryset(queryset, request)
+        return paginator.get_paginated_response(
+            QualityReportSerializer(page, many=True).data
+        )
 
 
 class ReportDetailView(APIView):
@@ -63,6 +155,11 @@ class ReportDetailView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: QualityReportSerializer},
+        summary="Retrieve a quality report by ID",
+        description="Returns a single quality report with all rule findings nested.",
+    )
     def get(self, request: Request, report_id: str) -> Response:
         try:
             report = QualityReport.objects.prefetch_related("findings__rule").get(
@@ -84,10 +181,56 @@ class TrendView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="date_from",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Return snapshots on or after this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="date_to",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Return snapshots on or before this date (YYYY-MM-DD).",
+                required=False,
+            ),
+        ],
+        responses={200: TrendMetricSerializer(many=True)},
+        summary="List trend metrics for a dataset",
+        description=(
+            "Returns daily quality score snapshots for a dataset, ordered oldest to newest. "
+            "Supports date range filtering via date_from and date_to (YYYY-MM-DD). "
+            "Not paginated — trend data is consumed whole by the frontend chart."
+        ),
+    )
     def get(self, request: Request, dataset_id: str) -> Response:
         dataset = _get_dataset_for_user(dataset_id, request.user)
-        trends = TrendMetric.objects.filter(dataset=dataset).order_by("snapshot_date")
-        return Response(TrendMetricSerializer(trends, many=True).data)
+        queryset = TrendMetric.objects.filter(dataset=dataset).order_by("snapshot_date")
+
+        # Filter: ?date_from=YYYY-MM-DD
+        date_from = request.query_params.get("date_from")
+        if date_from:
+            try:
+                queryset = queryset.filter(snapshot_date__gte=date_from)
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    {"date_from": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # Filter: ?date_to=YYYY-MM-DD
+        date_to = request.query_params.get("date_to")
+        if date_to:
+            try:
+                queryset = queryset.filter(snapshot_date__lte=date_to)
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    {"date_to": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        return Response(TrendMetricSerializer(queryset, many=True).data)
 
 
 class DashboardView(APIView):
@@ -104,6 +247,15 @@ class DashboardView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        responses={200: DashboardSerializer},
+        summary="Retrieve the quality dashboard",
+        description=(
+            "Returns all datasets for the authenticated user, each with their latest "
+            "quality report summary and full trend history. Optimised with prefetch_related "
+            "to avoid N+1 queries."
+        ),
+    )
     def get(self, request: Request) -> Response:
         datasets = Dataset.objects.filter(user=request.user).prefetch_related(
             Prefetch(

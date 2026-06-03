@@ -11,17 +11,26 @@ DatasetFileUpdateView  PATCH  /api/v1/datasets/<id>/file/
 MultiPartParser is declared on upload and file-update views so DRF knows to
 expect a multipart/form-data body. All other views use the default JSON parser.
 DatasetDetailView.patch accepts JSON (default parser) — no file involved.
+
+DatasetListView supports the following query parameters:
+    ?search=<str>       — case-insensitive match on file_title or file_name
+    ?file_type=csv|json — filter by file type
+    ?page=<n>           — page number (default 1)
+    ?page_size=<n>      — items per page (default 20, max 100)
 """
 
 import logging
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.types import OpenApiTypes
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from core.pagination import DataPulsePagination
 
 from .models import Dataset
 from .serializers import (
@@ -105,20 +114,80 @@ class DatasetListView(APIView):
     """
     GET /api/v1/datasets/
 
-    Returns all datasets belonging to the authenticated user,
-    most recent first.
+    Returns datasets belonging to the authenticated user, most recent first.
+
+    Filters (all optional, combinable):
+        ?search=<str>        case-insensitive substring match on file_title or file_name
+        ?file_type=csv|json  exact match on file type
+
+    Pagination:
+        ?page=<n>            page number (default 1)
+        ?page_size=<n>       items per page (default 20, max 100)
     """
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Case-insensitive substring match on file_title or file_name.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="file_type",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter by file type: `csv` or `json`.",
+                required=False,
+                enum=["csv", "json"],
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number (default 1).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Items per page (default 20, max 100).",
+                required=False,
+            ),
+        ],
         responses={200: DatasetResponseSerializer(many=True)},
-        summary="List all datasets for the authenticated user",
+        summary="List datasets for the authenticated user",
+        description=(
+            "Returns a paginated list of the authenticated user's datasets. "
+            "Supports filtering by file type and substring search on title or filename."
+        ),
     )
     def get(self, request: Request) -> Response:
-        datasets = Dataset.objects.filter(user=request.user).order_by("-created_at")
-        serializer = DatasetResponseSerializer(datasets, many=True)
-        return Response(serializer.data)
+        queryset = Dataset.objects.filter(user=request.user).order_by("-created_at")
+
+        # Filter: ?file_type=csv|json
+        file_type = request.query_params.get("file_type")
+        if file_type:
+            queryset = queryset.filter(file_type=file_type)
+
+        # Filter: ?search=<str> — matches file_title or file_name
+        search = request.query_params.get("search", "").strip()
+        if search:
+            from django.db.models import Q
+
+            queryset = queryset.filter(
+                Q(file_title__icontains=search) | Q(file_name__icontains=search)
+            )
+
+        paginator = DataPulsePagination()
+        page = paginator.paginate_queryset(queryset, request)
+        return paginator.get_paginated_response(
+            DatasetResponseSerializer(page, many=True).data
+        )
 
 
 class DatasetDetailView(APIView):

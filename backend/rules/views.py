@@ -7,18 +7,27 @@ RuleDetailView        GET / PATCH / DELETE  /api/v1/rules/<id>/
 Ownership is enforced at every level:
   - dataset must belong to request.user
   - rule must belong to a dataset owned by request.user
+
+RuleListCreateView GET supports the following query parameters:
+    ?rule_type=null_check|type_check|range_check|uniqueness_check
+    ?column_name=<str>   — exact match on column name
+    ?page=<n>            — page number (default 1)
+    ?page_size=<n>       — items per page (default 20, max 100)
 """
 
 import logging
 
 from django.db import IntegrityError
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from core.pagination import DataPulsePagination
 
 from datasets.models import Dataset
 
@@ -56,13 +65,63 @@ class RuleListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="rule_type",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter by rule type.",
+                required=False,
+                enum=["null_check", "type_check", "range_check", "uniqueness_check"],
+            ),
+            OpenApiParameter(
+                name="column_name",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Exact match on column name.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number (default 1).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Items per page (default 20, max 100).",
+                required=False,
+            ),
+        ],
         responses={200: ValidationRuleSerializer(many=True)},
-        summary="List all validation rules for a dataset",
+        summary="List validation rules for a dataset",
+        description=(
+            "Returns a paginated list of validation rules for the dataset. "
+            "Supports filtering by rule_type and column_name."
+        ),
     )
     def get(self, request: Request, dataset_id: str) -> Response:
         dataset = _get_dataset_for_user(dataset_id, request.user)
-        rules = ValidationRule.objects.filter(dataset=dataset).order_by("created_at")
-        return Response(ValidationRuleSerializer(rules, many=True).data)
+        queryset = ValidationRule.objects.filter(dataset=dataset).order_by("created_at")
+
+        # Filter: ?rule_type=null_check|type_check|range_check|uniqueness_check
+        rule_type = request.query_params.get("rule_type")
+        if rule_type:
+            queryset = queryset.filter(rule_type=rule_type)
+
+        # Filter: ?column_name=<str> — exact match
+        column_name = request.query_params.get("column_name", "").strip()
+        if column_name:
+            queryset = queryset.filter(column_name=column_name)
+
+        paginator = DataPulsePagination()
+        page = paginator.paginate_queryset(queryset, request)
+        return paginator.get_paginated_response(
+            ValidationRuleSerializer(page, many=True).data
+        )
 
     @extend_schema(
         request=ValidationRuleSerializer,
