@@ -12,7 +12,8 @@ import {
 } from './auth.effects';
 import { AUTH_TOKEN_KEY } from '../auth.models';
 
-const mockUser = { id: '1', email: 'user@example.com', name: 'Test User' };
+const mockUser = { id: '1', email: 'user@example.com', name: 'Test User', role: 'user' as const };
+const mockAdmin = { id: '2', email: 'admin@example.com', name: 'Admin User', role: 'admin' as const };
 
 function makeActions(...actions: Action[]): ReplaySubject<Action> {
   const subject = new ReplaySubject<Action>(actions.length);
@@ -125,22 +126,32 @@ describe('saveTokenEffect', () => {
 });
 
 describe('redirectAfterAuthEffect', () => {
-  it('navigates to /dashboard on loginSuccess', (done) => {
+  it('navigates to /dashboard/projects on loginSuccess for a regular user', (done) => {
     const router = { navigate: jest.fn() };
     const actions$ = makeActions(AuthActions.loginSuccess({ user: mockUser, token: 'tok' }));
 
     redirectAfterAuthEffect(actions$ as any, router as any).subscribe(() => {
-      expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+      expect(router.navigate).toHaveBeenCalledWith(['/dashboard/projects']);
       done();
     });
   });
 
-  it('navigates to /dashboard on registerSuccess', (done) => {
+  it('navigates to /dashboard/overview on loginSuccess for an admin', (done) => {
+    const router = { navigate: jest.fn() };
+    const actions$ = makeActions(AuthActions.loginSuccess({ user: mockAdmin, token: 'tok' }));
+
+    redirectAfterAuthEffect(actions$ as any, router as any).subscribe(() => {
+      expect(router.navigate).toHaveBeenCalledWith(['/dashboard/overview']);
+      done();
+    });
+  });
+
+  it('navigates to /dashboard/projects on registerSuccess for a regular user', (done) => {
     const router = { navigate: jest.fn() };
     const actions$ = makeActions(AuthActions.registerSuccess({ user: mockUser, token: 'tok' }));
 
     redirectAfterAuthEffect(actions$ as any, router as any).subscribe(() => {
-      expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+      expect(router.navigate).toHaveBeenCalledWith(['/dashboard/projects']);
       done();
     });
   });
