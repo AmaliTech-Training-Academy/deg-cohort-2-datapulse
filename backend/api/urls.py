@@ -12,7 +12,9 @@ Endpoint map:
   GET    /api/v1/datasets/
   POST   /api/v1/datasets/upload/
   GET    /api/v1/datasets/<id>/
+  PATCH  /api/v1/datasets/<id>/
   DELETE /api/v1/datasets/<id>/
+  PATCH  /api/v1/datasets/<id>/file/
 
   GET    /api/v1/datasets/<id>/rules/
   POST   /api/v1/datasets/<id>/rules/

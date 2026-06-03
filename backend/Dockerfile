@@ -23,8 +23,8 @@ FROM python:3.12-alpine AS runtime
 
 WORKDIR /app
 
-# Runtime dependency for psycopg2
-RUN apk add --no-cache libpq
+# Runtime dependencies: libpq for psycopg2, ca-certificates for TLS (SMTP/HTTPS)
+RUN apk add --no-cache libpq ca-certificates
 
 # Copy installed packages from the builder stage
 COPY --from=builder /install /usr/local

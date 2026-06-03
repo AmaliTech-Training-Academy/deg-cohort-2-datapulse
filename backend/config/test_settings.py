@@ -3,14 +3,17 @@ config/test_settings.py
 ────────────────────────────────────────────────────────────────────────────────
 Test-only settings. Inherits everything from settings.py and overrides only
 what is needed for a fast, dependency-free test run.
-
-Key overrides:
-  - SQLite in-memory database (no PostgreSQL / psycopg2 needed)
-  - Console email backend (emails go to mailoutbox fixture, not SMTP)
-  - Disabled password hashers (bcrypt → MD5, makes tests ~10x faster)
 """
 
-from .settings import *  # noqa: F401, F403
+import os
+
+# Must be set BEFORE importing settings.py so decouple reads these values
+# instead of the .env file (which can have CRLF/comment parsing issues).
+os.environ.setdefault("DEBUG", "True")
+os.environ.setdefault("LOG_LEVEL", "INFO")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
+
+from .settings import *  # noqa: E402, F401, F403
 
 # ── Database ──────────────────────────────────────────────────────────────────
 # Use SQLite in-memory so tests run without a running PostgreSQL server.
