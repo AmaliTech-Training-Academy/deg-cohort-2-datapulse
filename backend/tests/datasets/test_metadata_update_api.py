@@ -25,9 +25,7 @@ UPLOAD_URL = "/api/v1/datasets/upload/"
 LIST_URL = "/api/v1/datasets/"
 
 VALID_CSV = (
-    b"id,age,email,score\n"
-    b"1,25,alice@test.com,88\n"
-    b"2,30,bob@test.com,92\n"
+    b"id,age,email,score\n" b"1,25,alice@test.com,88\n" b"2,30,bob@test.com,92\n"
 )
 
 
@@ -43,7 +41,11 @@ def uploaded(auth_client, settings, tmp_path):
     f.name = "data.csv"
     resp = auth_client.post(
         UPLOAD_URL,
-        {"file": f, "file_title": "Original Title", "description": "Original description"},
+        {
+            "file": f,
+            "file_title": "Original Title",
+            "description": "Original description",
+        },
         format="multipart",
     )
     assert resp.status_code == 201
