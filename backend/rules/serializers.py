@@ -39,6 +39,10 @@ class ValidationRuleSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+        # Disable the auto-generated UniqueTogetherValidator so that duplicate
+        # (dataset, column_name, rule_type) combinations are caught by the DB
+        # IntegrityError in the view, which returns the proper 409 response.
+        validators = []
 
     def validate(self, attrs):
         rule_type = attrs.get("rule_type")
