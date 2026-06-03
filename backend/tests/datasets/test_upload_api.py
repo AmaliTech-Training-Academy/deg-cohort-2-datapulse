@@ -47,7 +47,14 @@ class TestDatasetUpload:
         settings.MEDIA_ROOT = str(tmp_path)
         resp = auth_client.post(UPLOAD_URL, csv_payload(), format="multipart")
         data = resp.json()
-        for field in ("id", "file_name", "file_type", "row_count", "columns", "created_at"):
+        for field in (
+            "id",
+            "file_name",
+            "file_type",
+            "row_count",
+            "columns",
+            "created_at",
+        ):
             assert field in data
 
     def test_file_path_not_in_response(self, auth_client, settings, tmp_path):
@@ -94,16 +101,10 @@ class TestDatasetUpload:
 
     def test_oversized_file_returns_400(self, auth_client, settings, tmp_path):
         settings.MEDIA_ROOT = str(tmp_path)
-        big = io.BytesIO(b"id,name\n" + b"1,x\n" * 1)
-        big.name = "big.csv"
-        # Patch size attribute directly
-        import django.core.files.uploadedfile as uf
-        original = uf.InMemoryUploadedFile
-
-        resp_data = csv_payload(b"id,name\n1,x\n")
         # Use a real oversized file mock
         from unittest.mock import MagicMock
         from datasets.services.file_service import MAX_FILE_SIZE_BYTES
+
         mock_file = MagicMock()
         mock_file.size = MAX_FILE_SIZE_BYTES + 1
         mock_file.name = "big.csv"
@@ -113,6 +114,7 @@ class TestDatasetUpload:
 
         from datasets.services.file_service import FileUploadService
         from rest_framework.exceptions import ValidationError
+
         svc = FileUploadService()
         with pytest.raises(ValidationError, match="MB limit"):
             svc._check_size(mock_file)
@@ -136,8 +138,11 @@ class TestDatasetList:
         assert len(resp.json()) == 1
         assert resp.json()[0]["id"] == uploaded["id"]
 
-    def test_list_isolated_per_user(self, auth_client, uploaded, api_client, admin_user):
+    def test_list_isolated_per_user(
+        self, auth_client, uploaded, api_client, admin_user
+    ):
         from rest_framework_simplejwt.tokens import RefreshToken
+
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.get(LIST_URL)
@@ -163,6 +168,7 @@ class TestDatasetDetail:
 
     def test_get_other_user_dataset_returns_404(self, api_client, admin_user, uploaded):
         from rest_framework_simplejwt.tokens import RefreshToken
+
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.get(f"{LIST_URL}{uploaded['id']}/")
@@ -187,8 +193,11 @@ class TestDatasetDelete:
         resp = auth_client.get(f"{LIST_URL}{uploaded['id']}/")
         assert resp.status_code == 404
 
-    def test_delete_other_user_dataset_returns_404(self, api_client, admin_user, uploaded):
+    def test_delete_other_user_dataset_returns_404(
+        self, api_client, admin_user, uploaded
+    ):
         from rest_framework_simplejwt.tokens import RefreshToken
+
         token = RefreshToken.for_user(admin_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.delete(f"{LIST_URL}{uploaded['id']}/")
