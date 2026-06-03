@@ -1,23 +1,13 @@
-"""checks/urls.py — mounted via api/urls.py"""
+"""checks/urls.py — only the run-check trigger endpoint lives here."""
 
 from django.urls import path
 
-from .views import CheckDetailView, CheckListView, RunCheckView
+from .views import RunCheckView
 
 urlpatterns = [
     path(
         "datasets/<uuid:dataset_id>/run-check/",
         RunCheckView.as_view(),
         name="run-check",
-    ),
-    path(
-        "datasets/<uuid:dataset_id>/checks/",
-        CheckListView.as_view(),
-        name="check-list",
-    ),
-    path(
-        "checks/<uuid:check_id>/",
-        CheckDetailView.as_view(),
-        name="check-detail",
     ),
 ]

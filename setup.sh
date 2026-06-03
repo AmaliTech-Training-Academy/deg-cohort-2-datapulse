@@ -16,9 +16,16 @@ docker compose up --build -d
 
 echo ""
 echo "Waiting for backend to be ready..."
-until curl -sf http://localhost:8000/health > /dev/null; do sleep 2; done
+until curl -sf http://localhost:8000/health/ > /dev/null; do sleep 2; done
 
 echo ""
 echo "DataPulse is running:"
 echo "  Backend API : http://localhost:8000"
-echo "  API Docs    : http://localhost:8000/docs"
+echo "  API Docs    : http://localhost:8000/api/docs/"
+echo "  Health      : http://localhost:8000/health/"
+echo ""
+echo "Data engineers — to run the ETL pipeline:"
+echo "  docker compose --profile pipeline up"
+echo ""
+echo "Frontend dev — to run the Angular app:"
+echo "  docker compose --profile frontend up"

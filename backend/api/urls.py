@@ -21,8 +21,11 @@ Endpoint map:
   DELETE /api/v1/rules/<id>/
 
   POST   /api/v1/datasets/<id>/run-check/
-  GET    /api/v1/datasets/<id>/checks/
-  GET    /api/v1/checks/<id>/
+
+  GET    /api/v1/datasets/<id>/reports/
+  GET    /api/v1/reports/<id>/
+  GET    /api/v1/datasets/<id>/trends/
+  GET    /api/v1/dashboard/
 """
 
 from django.urls import include, path
@@ -36,4 +39,6 @@ urlpatterns = [
     # Rules and checks use nested dataset URLs — include directly
     path("", include(rule_urls)),
     path("", include(check_urls)),
+    # Reports, trends, and dashboard
+    path("", include("reports.urls")),
 ]
