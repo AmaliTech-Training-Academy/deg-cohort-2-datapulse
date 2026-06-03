@@ -7,6 +7,10 @@ Stores metadata extracted from the uploaded file. The physical file lives at:
     MEDIA_ROOT/uploads/<user_id>/<uuid>.<ext>
 
 file_path is never returned in API responses — it is an internal server path.
+
+file_version starts at 1 and increments each time the file is replaced via
+PATCH /api/v1/datasets/<id>/file/.  All QualityReport records are preserved
+under the same dataset FK, so the full score history survives file replacements.
 """
 
 import uuid
@@ -37,6 +41,9 @@ class Dataset(TimeStampedModel):
     columns = models.JSONField(default=list, blank=True)
     file_title = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
+    # Incremented on every file replacement — version 1 is the original upload.
+    # All QualityReport history is preserved across versions via the dataset FK.
+    file_version = models.PositiveIntegerField(default=1)
 
     class Meta:
         db_table = "datasets"
