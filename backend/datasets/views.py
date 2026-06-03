@@ -177,7 +177,9 @@ class DatasetDetailView(APIView):
             list(serializer.validated_data.keys()),
         )
 
-        return Response(DatasetResponseSerializer(dataset).data, status=status.HTTP_200_OK)
+        return Response(
+            DatasetResponseSerializer(dataset).data, status=status.HTTP_200_OK
+        )
 
     @extend_schema(
         responses={204: None},
