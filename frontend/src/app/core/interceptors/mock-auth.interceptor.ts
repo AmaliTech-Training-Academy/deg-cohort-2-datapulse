@@ -32,6 +32,11 @@ const MOCK_CREDENTIALS: MockCredential[] = [
 ];
 
 export const mockAuthInterceptor: HttpInterceptorFn = (req, next) => {
+  // Pass through in automated browser environments (Playwright, Selenium) so
+  // network-level mocks (page.route) work as intended.
+  if (navigator.webdriver) {
+    return next(req);
+  }
   if (!req.url.includes('/auth/')) {
     return next(req);
   }

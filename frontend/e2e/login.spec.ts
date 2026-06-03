@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const API_LOGIN = '**/auth/login';
 
-const mockUser = { id: '1', email: 'user@example.com', name: 'Test User' };
+const mockUser = { id: '1', email: 'user@example.com', name: 'Test User', role: 'user' };
 
 test.describe('Login page', () => {
   test.beforeEach(async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe('Login page', () => {
     await page.locator('input[type="password"]').fill('correctpassword');
     await page.getByRole('button', { name: /sign in/i }).click();
 
-    await page.waitForURL('**/dashboard');
+    await page.waitForURL('**/dashboard/**');
     expect(page.url()).toContain('/dashboard');
   });
 
