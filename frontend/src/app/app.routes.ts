@@ -65,6 +65,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/admin/users/users').then((m) => m.UsersComponent),
       },
+      {
+        path: 'metrics',
+        canActivate: [roleGuard('admin')],
+        loadComponent: () =>
+          import('./features/dashboard/admin/metrics/metrics').then((m) => m.MetricsComponent),
+      },
       // User project routes
       {
         path: 'projects',
