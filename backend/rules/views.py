@@ -29,7 +29,7 @@ import logging
 
 from django.db import IntegrityError
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
@@ -192,13 +192,75 @@ class RuleListCreateView(APIView):
         responses={201: ValidationRuleSerializer, 409: None},
         summary="Create a validation rule for a dataset",
         description=(
-            "Supported rule_type values: `null_check`, `type_check`, `range_check`, `uniqueness_check`.\n\n"
-            "rule_config per type:\n"
-            "- `null_check`: `{}`\n"
-            '- `type_check`: `{"expected_type": "integer|float|string|boolean"}`\n'
-            '- `range_check`: `{"min": 0, "max": 100}`\n'
-            "- `uniqueness_check`: `{}`"
+            "Create a validation rule for a specific column in the dataset.\n\n"
+            "Supported rule_type values and their rule_config shapes:\n"
+            "- `null_check` — fails null, empty, or whitespace-only values: `{}`\n"
+            "- `type_check` — fails values that cannot be cast to the expected type: "
+            '`{"expected_type": "integer|float|string|boolean"}`\n'
+            "- `range_check` — fails numeric values outside [min, max]: "
+            '`{"min": 0, "max": 100}`\n'
+            "- `uniqueness_check` — flags all copies of duplicate values: `{}`\n\n"
+            "Returns 409 if a rule of the same type already exists for that column."
         ),
+        examples=[
+            OpenApiExample(
+                name="Null Check",
+                summary="Reject null or empty values in a column",
+                description=(
+                    "Fails any row where the column value is null, an empty string, "
+                    "or whitespace only."
+                ),
+                value={
+                    "column_name": "name",
+                    "rule_type": "null_check",
+                    "rule_config": {},
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Range Check",
+                summary="Reject values outside a numeric range",
+                description=(
+                    "Fails rows where the column value is not a number or falls "
+                    "outside the specified [min, max] bounds (inclusive)."
+                ),
+                value={
+                    "column_name": "age",
+                    "rule_type": "range_check",
+                    "rule_config": {"min": 18, "max": 65},
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Uniqueness Check",
+                summary="Reject duplicate values in a column",
+                description=(
+                    "Flags all copies of any value that appears more than once — "
+                    "not just the second occurrence."
+                ),
+                value={
+                    "column_name": "id",
+                    "rule_type": "uniqueness_check",
+                    "rule_config": {},
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Type Check",
+                summary="Reject values that cannot be cast to the expected type",
+                description=(
+                    "Supported expected_type values: integer, float, string, boolean. "
+                    "For integer: accepts whole-number floats (3.0) but rejects "
+                    "fractional values (3.5). For boolean: accepts true/false/1/0/yes/no."
+                ),
+                value={
+                    "column_name": "salary",
+                    "rule_type": "type_check",
+                    "rule_config": {"expected_type": "float"},
+                },
+                request_only=True,
+            ),
+        ],
     )
     def post(self, request: Request, dataset_id: str) -> Response:
         dataset = _get_dataset_for_user(dataset_id, request.user)
