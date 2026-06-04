@@ -43,24 +43,57 @@
           >
             @if (fileName()) {
               <div class="dropzone__file">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--color-success)"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
                 </svg>
                 <span class="dropzone__filename">{{ fileName() }}</span>
               </div>
             } @else {
               <div class="dropzone__content">
                 <div class="dropzone__icon">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
                 </div>
                 <p class="dropzone__text"><strong>Drop your file here, or browse</strong></p>
-                <p class="dropzone__hint">Supports <span class="file-type">.csv</span> and <span class="file-type">.json</span> · 50 MB max</p>
+                <p class="dropzone__hint">
+                  Supports <span class="file-type">.csv</span> and
+                  <span class="file-type">.json</span> · 50 MB max
+                </p>
               </div>
             }
-            <input #fileInput type="file" accept=".csv,.json" style="display:none" (change)="onFileSelect($event)" />
+            <input
+              #fileInput
+              type="file"
+              accept=".csv,.json"
+              style="display: none"
+              (change)="onFileSelect($event)"
+            />
           </div>
+          @if (parseError()) {
+            <p class="parse-error">{{ parseError() }}</p>
+          }
         </div>
       </div>
 
@@ -68,8 +101,17 @@
         <button class="btn-cancel" type="button" onclick="history.back()">Cancel</button>
         <button class="btn-primary" type="button" [disabled]="!canContinue" (click)="onContinue()">
           Continue
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"/>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6" />
           </svg>
         </button>
       </div>
@@ -82,20 +124,67 @@
       <p class="aside-subtitle">From upload to quality score in one step</p>
       <div class="steps-list">
         <div class="step-item">
-          <div class="step-item__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
-          <div><p class="step-item__title">Upload a dataset</p><p class="step-item__desc">Drop a .csv or .json file — up to 50 MB.</p></div>
+          <div class="step-item__icon">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+          </div>
+          <div>
+            <p class="step-item__title">Upload a dataset</p>
+            <p class="step-item__desc">Drop a .csv or .json file — up to 50 MB.</p>
+          </div>
         </div>
         <div class="step-item">
-          <div class="step-item__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-          <div><p class="step-item__title">Rules are generated</p><p class="step-item__desc">DataPulse suggests validation rules from your columns.</p></div>
+          <div class="step-item__icon">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </div>
+          <div>
+            <p class="step-item__title">Rules are generated</p>
+            <p class="step-item__desc">DataPulse suggests validation rules from your columns.</p>
+          </div>
         </div>
         <div class="step-item">
-          <div class="step-item__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
-          <div><p class="step-item__title">Checks run automatically</p><p class="step-item__desc">Get a quality score and findings within seconds.</p></div>
-        </div>
-        <div class="step-item">
-          <div class="step-item__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg></div>
-          <div><p class="step-item__title">Stay notified</p><p class="step-item__desc">Alerts fire when quality drops on future uploads.</p></div>
+          <div class="step-item__icon">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          </div>
+          <div>
+            <p class="step-item__title">Checks run automatically</p>
+            <p class="step-item__desc">Get a quality score and findings within seconds.</p>
+          </div>
         </div>
       </div>
     </div>

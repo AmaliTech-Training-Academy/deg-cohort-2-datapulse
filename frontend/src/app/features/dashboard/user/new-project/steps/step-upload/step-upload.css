@@ -35,4 +35,6 @@
 .step-item__title { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
 .step-item__desc { font-size: 12px; color: var(--color-text-muted); }
 
+.parse-error { font-size: 12px; color: var(--color-danger); margin-top: 6px; }
+
 @media (max-width: 900px) { .step-layout { grid-template-columns: 1fr; } }
