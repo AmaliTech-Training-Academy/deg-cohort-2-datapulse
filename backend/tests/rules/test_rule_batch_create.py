@@ -40,9 +40,7 @@ def batch_url(dataset_id):
 @pytest.fixture
 def uploaded(auth_client, settings, tmp_path):
     settings.MEDIA_ROOT = str(tmp_path)
-    resp = auth_client.post(
-        UPLOAD_URL, {"file": csv_file()}, format="multipart"
-    )
+    resp = auth_client.post(UPLOAD_URL, {"file": csv_file()}, format="multipart")
     assert resp.status_code == 201
     return resp.json()
 
@@ -69,23 +67,31 @@ ALL_FOUR_RULES = [
 @pytest.mark.django_db
 class TestBatchCreateShape:
     def test_returns_201(self, auth_client, uploaded):
-        resp = auth_client.post(batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json")
+        resp = auth_client.post(
+            batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json"
+        )
         assert resp.status_code == 201
 
     def test_response_has_all_top_level_keys(self, auth_client, uploaded):
-        resp = auth_client.post(batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json")
+        resp = auth_client.post(
+            batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json"
+        )
         data = resp.json()
         for key in ("created", "skipped", "errors", "summary"):
             assert key in data
 
     def test_summary_has_all_count_keys(self, auth_client, uploaded):
-        resp = auth_client.post(batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json")
+        resp = auth_client.post(
+            batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json"
+        )
         summary = resp.json()["summary"]
         for key in ("total", "created", "skipped", "errors"):
             assert key in summary
 
     def test_created_items_have_rule_fields(self, auth_client, uploaded):
-        resp = auth_client.post(batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json")
+        resp = auth_client.post(
+            batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json"
+        )
         rule = resp.json()["created"][0]
         for field in ("id", "dataset", "column_name", "rule_type", "rule_config"):
             assert field in rule
@@ -97,18 +103,24 @@ class TestBatchCreateShape:
 @pytest.mark.django_db
 class TestBatchCreateSuccess:
     def test_all_four_rules_created(self, auth_client, uploaded):
-        resp = auth_client.post(batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json")
+        resp = auth_client.post(
+            batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json"
+        )
         assert resp.json()["summary"]["created"] == 4
         assert resp.json()["summary"]["total"] == 4
         assert resp.json()["summary"]["skipped"] == 0
         assert resp.json()["summary"]["errors"] == 0
 
     def test_created_list_length_matches(self, auth_client, uploaded):
-        resp = auth_client.post(batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json")
+        resp = auth_client.post(
+            batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json"
+        )
         assert len(resp.json()["created"]) == 4
 
     def test_rule_types_in_created(self, auth_client, uploaded):
-        resp = auth_client.post(batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json")
+        resp = auth_client.post(
+            batch_url(uploaded["id"]), ALL_FOUR_RULES, format="json"
+        )
         types = {r["rule_type"] for r in resp.json()["created"]}
         assert types == {"null_check", "range_check", "uniqueness_check", "type_check"}
 
@@ -168,7 +180,11 @@ class TestBatchCreateDuplicates:
             batch_url(uploaded["id"]),
             [
                 {"column_name": "email", "rule_type": "null_check", "rule_config": {}},
-                {"column_name": "id", "rule_type": "uniqueness_check", "rule_config": {}},
+                {
+                    "column_name": "id",
+                    "rule_type": "uniqueness_check",
+                    "rule_config": {},
+                },
             ],
             format="json",
         )
@@ -182,7 +198,11 @@ class TestBatchCreateDuplicates:
 class TestBatchCreateValidationErrors:
     def test_invalid_column_goes_to_errors(self, auth_client, uploaded):
         batch = [
-            {"column_name": "nonexistent", "rule_type": "null_check", "rule_config": {}},
+            {
+                "column_name": "nonexistent",
+                "rule_type": "null_check",
+                "rule_config": {},
+            },
             {"column_name": "email", "rule_type": "null_check", "rule_config": {}},
         ]
         resp = auth_client.post(batch_url(uploaded["id"]), batch, format="json")
@@ -192,7 +212,11 @@ class TestBatchCreateValidationErrors:
 
     def test_error_entry_has_detail_and_index(self, auth_client, uploaded):
         batch = [
-            {"column_name": "nonexistent", "rule_type": "null_check", "rule_config": {}},
+            {
+                "column_name": "nonexistent",
+                "rule_type": "null_check",
+                "rule_config": {},
+            },
         ]
         resp = auth_client.post(batch_url(uploaded["id"]), batch, format="json")
         assert resp.status_code == 422
@@ -203,7 +227,11 @@ class TestBatchCreateValidationErrors:
     def test_all_errors_returns_422(self, auth_client, uploaded):
         batch = [
             {"column_name": "bad_col", "rule_type": "null_check", "rule_config": {}},
-            {"column_name": "another_bad", "rule_type": "null_check", "rule_config": {}},
+            {
+                "column_name": "another_bad",
+                "rule_type": "null_check",
+                "rule_config": {},
+            },
         ]
         resp = auth_client.post(batch_url(uploaded["id"]), batch, format="json")
         assert resp.status_code == 422
