@@ -79,6 +79,20 @@ services:
       analytics_db:
         condition: service_healthy
 
+  streamlit:
+    profiles: [streamlit]
+    build:
+      context: ./data-engineering
+      dockerfile: Dockerfile
+    command: python -m streamlit run dashboards/quality_dashboard.py --server.port=8501 --server.address=0.0.0.0 --server.baseUrlPath=/analytics
+    ports:
+      - "${STREAMLIT_PORT:-8501}:8501"
+    environment:
+      TARGET_DB_URL: postgresql://${ANALYTICS_DB_USER:-analytics_user}:${ANALYTICS_DB_PASSWORD:-analytics_pass}@analytics_db:5432/${ANALYTICS_DB_NAME:-datapulse_analytics}
+    depends_on:
+      analytics_db:
+        condition: service_healthy
+
   frontend:
     profiles: [frontend]
     build:

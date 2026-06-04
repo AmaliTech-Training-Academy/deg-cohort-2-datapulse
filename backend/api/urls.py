@@ -29,9 +29,6 @@ Endpoint map:
   GET    /api/v1/reports/<id>/
   GET    /api/v1/datasets/<id>/trends/
   GET    /api/v1/dashboard/
-
-  GET    /api/v1/admin/users/
-  GET    /api/v1/admin/datasets/
 """
 
 from django.urls import include, path
@@ -41,7 +38,6 @@ from rules.urls import urlpatterns as rule_urls
 
 urlpatterns = [
     path("auth/", include("accounts.urls")),
-    path("admin/", include("accounts.admin_urls")),
     path("datasets/", include("datasets.urls")),
     # Rules and checks use nested dataset URLs — include directly
     path("", include(rule_urls)),
