@@ -40,8 +40,12 @@ from .models import QualityReport, TrendMetric
 from .serializers import (
     DashboardSerializer,
     QualityReportSerializer,
+    ReportListSerializer,
     TrendMetricSerializer,
 )
+
+from django.db.models import Avg, Sum
+from rules.models import ValidationRule
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +61,22 @@ class ReportListView(APIView):
     """
     GET /api/v1/datasets/<dataset_id>/reports/
 
-    Returns all quality reports for a dataset, newest first.
-    Findings are NOT nested here to keep the list response lightweight.
+    Returns a paginated list of quality reports for a dataset, newest first.
+    Findings are excluded from the list response — use GET /reports/<id>/ for
+    the full report with nested findings.
+
+    Top-level summary fields (computed from ALL reports, unaffected by filters):
+        total_active_reports   — total reports ever generated for this dataset
+        total_active_rules     — current number of validation rules on the dataset
+        last_rule_check_time   — generated_at of the most recent report
+        average_score          — mean score across all completed reports
+        total_passing_rows     — sum of total_rows_passed across all completed reports
+        total_passing_columns  — number of columns in the current dataset file
+
+    Per-report fields add:
+        dataset_file_title     — file title snapshot at check time
+        dataset_file_version   — file version snapshot at check time
+        file_rows_analyzed     — total_rows_passed + total_rows_failed
     """
 
     permission_classes = [IsAuthenticated]
@@ -102,19 +120,41 @@ class ReportListView(APIView):
                 required=False,
             ),
         ],
-        responses={200: QualityReportSerializer(many=True)},
+        responses={200: ReportListSerializer},
         summary="List quality reports for a dataset",
         description=(
-            "Returns a paginated list of quality reports for a dataset, newest first. "
-            "Findings are not nested in the list response. "
-            "Supports filtering by status and date range."
+            "Returns a paginated list of quality reports enriched with dataset-level "
+            "summary statistics. Findings are excluded — use GET /reports/<id>/ for "
+            "the full report with nested findings."
         ),
     )
     def get(self, request: Request, dataset_id: str) -> Response:
         dataset = _get_dataset_for_user(dataset_id, request.user)
-        queryset = QualityReport.objects.filter(dataset=dataset)
 
-        # Filter: ?status=pending|running|completed|failed
+        # ── Summary stats — computed from ALL reports, never filtered ─────────
+        all_reports_qs = QualityReport.objects.filter(dataset=dataset)
+        completed_qs = all_reports_qs.exclude(overall_score=None)
+
+        total_active_reports = all_reports_qs.count()
+        total_active_rules = ValidationRule.objects.filter(dataset=dataset).count()
+
+        latest = all_reports_qs.order_by("-generated_at").first()
+        last_rule_check_time = latest.generated_at if latest else None
+
+        agg = completed_qs.aggregate(
+            avg_score=Avg("overall_score"),
+            sum_passing=Sum("total_rows_passed"),
+        )
+        average_score = (
+            round(agg["avg_score"], 2) if agg["avg_score"] is not None else None
+        )
+        total_passing_rows = agg["sum_passing"] or 0
+        total_passing_columns = len(dataset.columns or [])
+
+        # ── Filtered queryset for paginated results ───────────────────────────
+        queryset = all_reports_qs
+
+        # Filter: ?status=healthy|warning|failing
         report_status = request.query_params.get("status")
         if report_status:
             queryset = queryset.filter(status=report_status)
@@ -139,11 +179,26 @@ class ReportListView(APIView):
                     {"date_to": "Invalid date format. Use YYYY-MM-DD."}
                 )
 
+        # ── Paginate ──────────────────────────────────────────────────────────
         paginator = DataPulsePagination()
         page = paginator.paginate_queryset(queryset, request)
-        return paginator.get_paginated_response(
-            QualityReportSerializer(page, many=True).data
-        )
+
+        from .serializers import ReportListItemSerializer
+
+        payload = {
+            "total_active_reports": total_active_reports,
+            "total_active_rules": total_active_rules,
+            "last_rule_check_time": last_rule_check_time,
+            "average_score": average_score,
+            "total_passing_rows": total_passing_rows,
+            "total_passing_columns": total_passing_columns,
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "results": ReportListItemSerializer(page, many=True).data,
+        }
+
+        return Response(ReportListSerializer(payload).data)
 
 
 class ReportDetailView(APIView):
