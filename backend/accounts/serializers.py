@@ -135,6 +135,36 @@ class ForgotPasswordSerializer(serializers.Serializer):
         return getattr(self, "_user", None)
 
 
+class AdminUserListSerializer(serializers.ModelSerializer):
+    """Read-only serializer for the admin user-management table."""
+
+    name = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    datasets_count = serializers.IntegerField(read_only=True)
+    last_active = serializers.DateTimeField(source="last_login", read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "name",
+            "email",
+            "role",
+            "datasets_count",
+            "status",
+            "last_active",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_name(self, obj: User) -> str:
+        full_name = obj.get_full_name().strip()
+        return full_name if full_name else obj.email
+
+    def get_status(self, obj: User) -> str:
+        return "active" if obj.is_active else "suspended"
+
+
 class ResetPasswordSerializer(serializers.Serializer):
     uid = serializers.UUIDField()
     token = serializers.CharField()
