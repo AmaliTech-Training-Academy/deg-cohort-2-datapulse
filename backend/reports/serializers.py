@@ -1,9 +1,11 @@
 """
 reports/serializers.py
 ────────────────────────────────────────────────────────────────────────────────
-RuleFindingSerializer    — per-rule results nested inside a report
-QualityReportSerializer  — full report response (used by run-check + report API)
-TrendMetricSerializer    — single trend point (date + score)
+RuleFindingSerializer      — per-rule results nested inside a report (detail only)
+QualityReportSerializer    — full report response with findings (run-check + detail API)
+ReportListItemSerializer   — lightweight report row for list responses (no findings)
+ReportListSerializer       — full list envelope with dataset-level summary statistics
+TrendMetricSerializer      — single trend point (date + score)
 DashboardDatasetSerializer — per-dataset summary for the dashboard
 DashboardSerializer        — top-level dashboard response
 """
@@ -53,6 +55,77 @@ class QualityReportSerializer(serializers.ModelSerializer):
             "generated_at",
         ]
         read_only_fields = fields
+
+
+class ReportListItemSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for individual reports inside ReportListView.
+
+    Findings are intentionally excluded — use GET /reports/<id>/ for the
+    full report with nested findings.
+
+    Adds file_rows_analyzed — the total number of rows inspected during this
+    run (total_rows_passed + total_rows_failed).  Null when the report has
+    not yet completed (e.g. still queued).
+    """
+
+    file_rows_analyzed = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QualityReport
+        fields = [
+            "id",
+            "dataset",
+            "dataset_file_title",
+            "dataset_file_version",
+            "status",
+            "overall_score",
+            "total_rows_passed",
+            "total_rows_failed",
+            "file_rows_analyzed",
+            "error_message",
+            "generated_at",
+        ]
+        read_only_fields = fields
+
+    def get_file_rows_analyzed(self, obj) -> int | None:
+        if obj.total_rows_passed is None or obj.total_rows_failed is None:
+            return None
+        return obj.total_rows_passed + obj.total_rows_failed
+
+
+class ReportListSerializer(serializers.Serializer):
+    """
+    Full envelope returned by GET /api/v1/datasets/<id>/reports/.
+
+    Summary fields (computed from ALL reports for the dataset, unaffected
+    by filters or pagination):
+        total_active_reports   — total number of reports ever generated
+        total_active_rules     — current number of validation rules on the dataset
+        last_rule_check_time   — generated_at of the most recent report (null if none)
+        average_score          — mean overall_score across all completed reports
+                                 (null if no completed reports)
+        total_passing_rows     — sum of total_rows_passed across all completed reports
+        total_passing_columns  — number of distinct columns in the current dataset file
+
+    Pagination envelope (reflects the current filtered + paginated view):
+        count      — total items matching the current filters
+        next       — URL of the next page (null on last page)
+        previous   — URL of the previous page (null on first page)
+        results    — list of ReportListItemSerializer objects
+    """
+
+    total_active_reports = serializers.IntegerField()
+    total_active_rules = serializers.IntegerField()
+    last_rule_check_time = serializers.DateTimeField(allow_null=True)
+    average_score = serializers.FloatField(allow_null=True)
+    total_passing_rows = serializers.IntegerField()
+    total_passing_columns = serializers.IntegerField()
+    count = serializers.IntegerField()
+    next = serializers.CharField(allow_null=True)
+    previous = serializers.CharField(allow_null=True)
+    # results holds already-serialized dicts from ReportListItemSerializer
+    results = serializers.ListField(child=serializers.DictField())
 
 
 class TrendMetricSerializer(serializers.ModelSerializer):
