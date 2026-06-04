@@ -1,6 +1,13 @@
-import { Component, output, signal } from '@angular/core';
+import { Component, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Store } from '@ngrx/store';
 import { SuggestedRule, DetectedColumn } from '../../../../../../shared/models/dashboard.models';
+import { StepErrorComponent } from '../../../../../../shared/ui/step-error/step-error';
+import * as ProjectCreationActions from '../../../../store/project-creation/project-creation.actions';
+import {
+  selectUploadLoading,
+  selectUploadError,
+} from '../../../../store/project-creation/project-creation.selectors';
 
 export interface UploadData {
   name: string;
@@ -13,12 +20,18 @@ export interface UploadData {
 @Component({
   selector: 'app-step-upload',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, StepErrorComponent],
   templateUrl: './step-upload.html',
   styleUrl: './step-upload.css',
 })
 export class StepUploadComponent {
+  // Output kept for backwards compat — never emitted; store drives navigation.
   readonly continue = output<UploadData>();
+
+  private readonly store = inject(Store);
+
+  protected readonly uploadLoading = this.store.selectSignal(selectUploadLoading);
+  protected readonly uploadError = this.store.selectSignal(selectUploadError);
 
   protected projectName = '';
   protected description = '';
@@ -52,13 +65,14 @@ export class StepUploadComponent {
   }
 
   protected onContinue(): void {
-    this.continue.emit({
-      name: this.projectName,
-      description: this.description,
-      fileName: this.fileName() ?? '',
-      columns: this.parsedColumns(),
-      rules: this.parsedRules(),
-    });
+    if (!this.pendingFile || !this.canContinue) return;
+    this.store.dispatch(
+      ProjectCreationActions.uploadDataset({
+        file: this.pendingFile,
+        fileTitle: this.projectName.trim(),
+        description: this.description.trim(),
+      }),
+    );
   }
 
   protected get canContinue(): boolean {
