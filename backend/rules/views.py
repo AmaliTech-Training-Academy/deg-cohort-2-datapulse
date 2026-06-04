@@ -13,13 +13,23 @@ RuleListCreateView GET supports the following query parameters:
     ?column_name=<str>   — exact match on column name
     ?page=<n>            — page number (default 1)
     ?page_size=<n>       — items per page (default 20, max 100)
+
+RuleListCreateView GET response includes dataset-level summary fields:
+    total_failing_rows  — sum of rows_failed across all findings for this dataset
+    total_passing_rows  — sum of (rows_checked - rows_failed) across all findings
+    rule_type_scores    — per-rule-type average pass rate (0-100) for all 4 types
+
+Per-rule items add:
+    last_failing_rows   — rows_failed from the most recent finding for this rule
+    last_passing_rows   — passing rows from the most recent finding
+    average_score       — average pass rate across all findings for this rule
 """
 
 import logging
 
 from django.db import IntegrityError
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
@@ -32,7 +42,12 @@ from core.pagination import DataPulsePagination
 from datasets.models import Dataset
 
 from .models import ValidationRule
-from .serializers import RuleUpdateSerializer, ValidationRuleSerializer
+from .serializers import (
+    RuleListItemSerializer,
+    RuleListSerializer,
+    RuleUpdateSerializer,
+    ValidationRuleSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -96,45 +111,154 @@ class RuleListCreateView(APIView):
                 required=False,
             ),
         ],
-        responses={200: ValidationRuleSerializer(many=True)},
+        responses={200: RuleListSerializer},
         summary="List validation rules for a dataset",
         description=(
-            "Returns a paginated list of validation rules for the dataset. "
+            "Returns a paginated list of validation rules enriched with per-rule "
+            "performance stats (last_failing_rows, last_passing_rows, average_score). "
+            "Top-level summary includes total_failing_rows, total_passing_rows, and "
+            "rule_type_scores for all 4 rule types. "
             "Supports filtering by rule_type and column_name."
         ),
     )
     def get(self, request: Request, dataset_id: str) -> Response:
+        from reports.models import RuleFinding
+
         dataset = _get_dataset_for_user(dataset_id, request.user)
-        queryset = ValidationRule.objects.filter(dataset=dataset).order_by("created_at")
+
+        # ── Dataset-level summary — all findings, never filtered ──────────────
+        # Fetch all RuleFindings for rules belonging to this dataset.
+        all_findings = RuleFinding.objects.filter(rule__dataset=dataset).select_related(
+            "rule"
+        )
+
+        total_failing_rows = sum(f.rows_failed for f in all_findings)
+        total_passing_rows = sum(f.rows_checked - f.rows_failed for f in all_findings)
+
+        ALL_RULE_TYPES = [
+            "null_check",
+            "type_check",
+            "range_check",
+            "uniqueness_check",
+        ]
+        rates_by_type: dict[str, list[float]] = {rt: [] for rt in ALL_RULE_TYPES}
+        for finding in all_findings:
+            rt = finding.rule.rule_type
+            if rt in rates_by_type:
+                rates_by_type[rt].append(100.0 - finding.failure_percentage)
+
+        rule_type_scores = {}
+        for rt in ALL_RULE_TYPES:
+            rates = rates_by_type[rt]
+            rule_type_scores[rt] = round(sum(rates) / len(rates)) if rates else None
+
+        # ── Filtered queryset — prefetch findings for per-rule stats ──────────
+        queryset = (
+            ValidationRule.objects.filter(dataset=dataset)
+            .prefetch_related("findings")
+            .order_by("created_at")
+        )
 
         # Filter: ?rule_type=null_check|type_check|range_check|uniqueness_check
-        rule_type = request.query_params.get("rule_type")
-        if rule_type:
-            queryset = queryset.filter(rule_type=rule_type)
+        rule_type_filter = request.query_params.get("rule_type")
+        if rule_type_filter:
+            queryset = queryset.filter(rule_type=rule_type_filter)
 
         # Filter: ?column_name=<str> — exact match
         column_name = request.query_params.get("column_name", "").strip()
         if column_name:
             queryset = queryset.filter(column_name=column_name)
 
+        # ── Paginate ──────────────────────────────────────────────────────────
         paginator = DataPulsePagination()
         page = paginator.paginate_queryset(queryset, request)
-        return paginator.get_paginated_response(
-            ValidationRuleSerializer(page, many=True).data
-        )
+
+        payload = {
+            "total_failing_rows": total_failing_rows,
+            "total_passing_rows": total_passing_rows,
+            "rule_type_scores": rule_type_scores,
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "results": RuleListItemSerializer(page, many=True).data,
+        }
+
+        return Response(RuleListSerializer(payload).data)
 
     @extend_schema(
         request=ValidationRuleSerializer,
         responses={201: ValidationRuleSerializer, 409: None},
         summary="Create a validation rule for a dataset",
         description=(
-            "Supported rule_type values: `null_check`, `type_check`, `range_check`, `uniqueness_check`.\n\n"
-            "rule_config per type:\n"
-            "- `null_check`: `{}`\n"
-            '- `type_check`: `{"expected_type": "integer|float|string|boolean"}`\n'
-            '- `range_check`: `{"min": 0, "max": 100}`\n'
-            "- `uniqueness_check`: `{}`"
+            "Create a validation rule for a specific column in the dataset.\n\n"
+            "Supported rule_type values and their rule_config shapes:\n"
+            "- `null_check` — fails null, empty, or whitespace-only values: `{}`\n"
+            "- `type_check` — fails values that cannot be cast to the expected type: "
+            '`{"expected_type": "integer|float|string|boolean"}`\n'
+            "- `range_check` — fails numeric values outside [min, max]: "
+            '`{"min": 0, "max": 100}`\n'
+            "- `uniqueness_check` — flags all copies of duplicate values: `{}`\n\n"
+            "Returns 409 if a rule of the same type already exists for that column."
         ),
+        examples=[
+            OpenApiExample(
+                name="Null Check",
+                summary="Reject null or empty values in a column",
+                description=(
+                    "Fails any row where the column value is null, an empty string, "
+                    "or whitespace only."
+                ),
+                value={
+                    "column_name": "name",
+                    "rule_type": "null_check",
+                    "rule_config": {},
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Range Check",
+                summary="Reject values outside a numeric range",
+                description=(
+                    "Fails rows where the column value is not a number or falls "
+                    "outside the specified [min, max] bounds (inclusive)."
+                ),
+                value={
+                    "column_name": "age",
+                    "rule_type": "range_check",
+                    "rule_config": {"min": 18, "max": 65},
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Uniqueness Check",
+                summary="Reject duplicate values in a column",
+                description=(
+                    "Flags all copies of any value that appears more than once — "
+                    "not just the second occurrence."
+                ),
+                value={
+                    "column_name": "id",
+                    "rule_type": "uniqueness_check",
+                    "rule_config": {},
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Type Check",
+                summary="Reject values that cannot be cast to the expected type",
+                description=(
+                    "Supported expected_type values: integer, float, string, boolean. "
+                    "For integer: accepts whole-number floats (3.0) but rejects "
+                    "fractional values (3.5). For boolean: accepts true/false/1/0/yes/no."
+                ),
+                value={
+                    "column_name": "salary",
+                    "rule_type": "type_check",
+                    "rule_config": {"expected_type": "float"},
+                },
+                request_only=True,
+            ),
+        ],
     )
     def post(self, request: Request, dataset_id: str) -> Response:
         dataset = _get_dataset_for_user(dataset_id, request.user)

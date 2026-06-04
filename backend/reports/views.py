@@ -10,7 +10,7 @@ All views require authentication and enforce ownership — a user can only
 see reports and trends for their own datasets.
 
 ReportListView supports:
-    ?status=pending|running|completed|failed
+    ?status=healthy|warning|failing
     ?date_from=YYYY-MM-DD   — reports generated on or after this date
     ?date_to=YYYY-MM-DD     — reports generated on or before this date
     ?page=<n>               — page number (default 1)
@@ -39,9 +39,13 @@ from datasets.models import Dataset
 from .models import QualityReport, TrendMetric
 from .serializers import (
     DashboardSerializer,
-    QualityReportSerializer,
+    ReportDetailSerializer,
+    ReportListSerializer,
     TrendMetricSerializer,
 )
+
+from django.db.models import Avg, Sum
+from rules.models import ValidationRule
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +61,29 @@ class ReportListView(APIView):
     """
     GET /api/v1/datasets/<dataset_id>/reports/
 
-    Returns all quality reports for a dataset, newest first.
-    Findings are NOT nested here to keep the list response lightweight.
+    Returns a paginated list of quality reports for a dataset, newest first.
+    Findings are excluded from the list response — use GET /reports/<id>/ for
+    the full report with nested findings.
+
+    Top-level summary fields (computed from ALL reports, unaffected by filters):
+        total_active_reports   — total reports ever generated for this dataset
+        total_active_rules     — current number of validation rules on the dataset
+        last_rule_check_time   — generated_at of the most recent report
+        average_score          — mean score across all completed reports
+        total_passing_rows     — sum of total_rows_passed across all completed reports
+        total_passing_columns  — number of columns in the current dataset file
+
+    Per-report fields add:
+        dataset_file_title     — file title snapshot at check time
+        dataset_file_version   — file version snapshot at check time
+        file_rows_analyzed     — total_rows_passed + total_rows_failed
+
+    Filters (all optional, combinable):
+        ?status=healthy|warning|failing
+        ?date_from=YYYY-MM-DD   reports generated on or after this date
+        ?date_to=YYYY-MM-DD     reports generated on or before this date
+        ?score_min=<0-100>      reports with overall_score >= this value
+        ?score_max=<0-100>      reports with overall_score <= this value
     """
 
     permission_classes = [IsAuthenticated]
@@ -69,9 +94,9 @@ class ReportListView(APIView):
                 name="status",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description="Filter by report status.",
+                description="Filter by quality status.",
                 required=False,
-                enum=["pending", "running", "completed", "failed"],
+                enum=["healthy", "warning", "failing"],
             ),
             OpenApiParameter(
                 name="date_from",
@@ -85,6 +110,20 @@ class ReportListView(APIView):
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
                 description="Return reports generated on or before this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="score_min",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Return reports with overall_score >= this value (0–100).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="score_max",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Return reports with overall_score <= this value (0–100).",
                 required=False,
             ),
             OpenApiParameter(
@@ -102,19 +141,42 @@ class ReportListView(APIView):
                 required=False,
             ),
         ],
-        responses={200: QualityReportSerializer(many=True)},
+        responses={200: ReportListSerializer},
         summary="List quality reports for a dataset",
         description=(
-            "Returns a paginated list of quality reports for a dataset, newest first. "
-            "Findings are not nested in the list response. "
-            "Supports filtering by status and date range."
+            "Returns a paginated list of quality reports enriched with dataset-level "
+            "summary statistics. Findings are excluded — use GET /reports/<id>/ for "
+            "the full report with nested findings. "
+            "Supports filtering by status, date range, and score range."
         ),
     )
     def get(self, request: Request, dataset_id: str) -> Response:
         dataset = _get_dataset_for_user(dataset_id, request.user)
-        queryset = QualityReport.objects.filter(dataset=dataset)
 
-        # Filter: ?status=pending|running|completed|failed
+        # ── Summary stats — computed from ALL reports, never filtered ─────────
+        all_reports_qs = QualityReport.objects.filter(dataset=dataset)
+        completed_qs = all_reports_qs.exclude(overall_score=None)
+
+        total_active_reports = all_reports_qs.count()
+        total_active_rules = ValidationRule.objects.filter(dataset=dataset).count()
+
+        latest = all_reports_qs.order_by("-generated_at").first()
+        last_rule_check_time = latest.generated_at if latest else None
+
+        agg = completed_qs.aggregate(
+            avg_score=Avg("overall_score"),
+            sum_passing=Sum("total_rows_passed"),
+        )
+        average_score = (
+            round(agg["avg_score"], 2) if agg["avg_score"] is not None else None
+        )
+        total_passing_rows = agg["sum_passing"] or 0
+        total_passing_columns = len(dataset.columns or [])
+
+        # ── Filtered queryset for paginated results ───────────────────────────
+        queryset = all_reports_qs
+
+        # Filter: ?status=healthy|warning|failing
         report_status = request.query_params.get("status")
         if report_status:
             queryset = queryset.filter(status=report_status)
@@ -139,26 +201,71 @@ class ReportListView(APIView):
                     {"date_to": "Invalid date format. Use YYYY-MM-DD."}
                 )
 
+        # Filter: ?score_min=<int> — overall_score >= value
+        score_min = request.query_params.get("score_min")
+        if score_min is not None:
+            try:
+                queryset = queryset.filter(overall_score__gte=int(score_min))
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    {"score_min": "Must be an integer between 0 and 100."}
+                )
+
+        # Filter: ?score_max=<int> — overall_score <= value
+        score_max = request.query_params.get("score_max")
+        if score_max is not None:
+            try:
+                queryset = queryset.filter(overall_score__lte=int(score_max))
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    {"score_max": "Must be an integer between 0 and 100."}
+                )
+
+        # ── Paginate ──────────────────────────────────────────────────────────
         paginator = DataPulsePagination()
         page = paginator.paginate_queryset(queryset, request)
-        return paginator.get_paginated_response(
-            QualityReportSerializer(page, many=True).data
-        )
+
+        from .serializers import ReportListItemSerializer
+
+        payload = {
+            "total_active_reports": total_active_reports,
+            "total_active_rules": total_active_rules,
+            "last_rule_check_time": last_rule_check_time,
+            "average_score": average_score,
+            "total_passing_rows": total_passing_rows,
+            "total_passing_columns": total_passing_columns,
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "results": ReportListItemSerializer(page, many=True).data,
+        }
+
+        return Response(ReportListSerializer(payload).data)
 
 
 class ReportDetailView(APIView):
     """
     GET /api/v1/reports/<report_id>/
 
-    Returns a single quality report with all findings nested.
+    Returns a single quality report with all findings nested, enriched with:
+        dataset_file_name   — human-readable title of the file that was checked
+        rules_applied       — number of validation rules that ran
+        rows_analyzed       — total rows inspected (passed + failed)
+        rule_type_scores    — per-rule-type average pass rate (0-100):
+                              { null_check, type_check, range_check,
+                                uniqueness_check } — null when not checked
     """
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        responses={200: QualityReportSerializer},
+        responses={200: ReportDetailSerializer},
         summary="Retrieve a quality report by ID",
-        description="Returns a single quality report with all rule findings nested.",
+        description=(
+            "Returns a single quality report with all rule findings nested. "
+            "Includes dataset_file_name, rules_applied, rows_analyzed, and "
+            "per-rule-type average pass scores for all 4 rule types."
+        ),
     )
     def get(self, request: Request, report_id: str) -> Response:
         try:
@@ -168,7 +275,7 @@ class ReportDetailView(APIView):
         except QualityReport.DoesNotExist:
             raise NotFound("Report not found.")
 
-        return Response(QualityReportSerializer(report).data)
+        return Response(ReportDetailSerializer(report).data)
 
 
 class TrendView(APIView):
@@ -237,53 +344,239 @@ class DashboardView(APIView):
     """
     GET /api/v1/dashboard/
 
-    Aggregate view for the frontend dashboard. Returns every dataset the
-    user owns together with:
-      • latest_report — most recent quality report (score, status, date)
-      • trend         — all trend_metric snapshots ordered by date
+    Paginated aggregate view for the frontend dashboard.
 
-    Uses prefetch_related to avoid N+1 queries.
+    Returns a paginated list of the user's datasets, each enriched with:
+      • status              — quality band of the latest report
+      • latest_score        — overall_score of the most recent report
+      • latest_score_date   — generated_at of the most recent report
+      • latest_report       — full latest report summary block
+      (trend is excluded — use GET /datasets/<id>/trends/ for chart data)
+
+    Top-level summary fields (always present, unaffected by filters/pagination):
+      • total_datasets          — all datasets owned by the user
+      • total_active_datasets   — datasets that have at least one quality report
+
+    Filters (all optional, combinable):
+        ?status=healthy|warning|failing   filter by latest report quality band
+        ?search=<str>                     case-insensitive match on file_title or file_name
+        ?date_from=YYYY-MM-DD             datasets whose latest report was generated on or after
+        ?date_to=YYYY-MM-DD               datasets whose latest report was generated on or before
+        ?created_from=YYYY-MM-DD          datasets uploaded on or after this date
+        ?created_to=YYYY-MM-DD            datasets uploaded on or before this date
+
+    Pagination:
+        ?page=<n>           page number (default 1)
+        ?page_size=<n>      items per page (default 20, max 100)
     """
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="status",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter by latest report quality band.",
+                required=False,
+                enum=["healthy", "warning", "failing"],
+            ),
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Case-insensitive substring match on file_title or file_name.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="date_from",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Only include datasets whose latest report was generated on or after this date (YYYY-MM-DD).",  # noqa: E501
+                required=False,
+            ),
+            OpenApiParameter(
+                name="date_to",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Only include datasets whose latest report was generated on or before this date (YYYY-MM-DD).",  # noqa: E501
+                required=False,
+            ),
+            OpenApiParameter(
+                name="created_from",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Only include datasets uploaded on or after this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="created_to",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Only include datasets uploaded on or before this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number (default 1).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Items per page (default 20, max 100).",
+                required=False,
+            ),
+        ],
         responses={200: DashboardSerializer},
         summary="Retrieve the quality dashboard",
         description=(
-            "Returns all datasets for the authenticated user, each with their latest "
-            "quality report summary and full trend history. Optimised with prefetch_related "
-            "to avoid N+1 queries."
+            "Returns a paginated list of the user's datasets enriched with their "
+            "latest quality report summary. Supports filtering by status, search, "
+            "and date range. Trend data is excluded — use GET /datasets/<id>/trends/ "
+            "for chart data."
         ),
     )
     def get(self, request: Request) -> Response:
-        datasets = Dataset.objects.filter(user=request.user).prefetch_related(
+        from django.db.models import OuterRef, Subquery
+
+        # ── Base queryset — all datasets for this user ────────────────────────
+        base_qs = Dataset.objects.filter(user=request.user)
+        total_datasets = base_qs.count()
+
+        # ── Annotate each dataset with its latest report via subquery ─────────
+        # Using Subquery instead of prefetch so we can filter on report fields
+        # without a costly Python-side loop.
+        latest_report_subquery = (
+            QualityReport.objects.filter(dataset=OuterRef("pk"))
+            .order_by("-generated_at")
+            .values("id")[:1]
+        )
+        datasets_with_report = base_qs.prefetch_related(
             Prefetch(
                 "reports",
                 queryset=QualityReport.objects.order_by("-generated_at"),
                 to_attr="all_reports",
-            ),
-            Prefetch(
-                "trend_metrics",
-                queryset=TrendMetric.objects.order_by("snapshot_date"),
-                to_attr="trends",
-            ),
-        )
+            )
+        ).annotate(latest_report_id=Subquery(latest_report_subquery))
 
-        dataset_blocks = []
-        for dataset in datasets:
+        # ── Build dataset blocks — resolve latest report per dataset ──────────
+        all_blocks = []
+        for dataset in datasets_with_report:
             latest_report = dataset.all_reports[0] if dataset.all_reports else None
-            dataset_blocks.append(
+            all_blocks.append(
                 {
                     "dataset": dataset,
                     "latest_report": latest_report,
-                    "trend": dataset.trends,
                 }
             )
 
+        # total_active_datasets — datasets that have at least one report
+        total_active = sum(1 for b in all_blocks if b["latest_report"] is not None)
+
+        # ── Apply filters in Python (after prefetch, avoids extra queries) ────
+
+        # ?status=healthy|warning|failing
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            all_blocks = [
+                b
+                for b in all_blocks
+                if b["latest_report"] is not None
+                and b["latest_report"].status == status_filter
+            ]
+
+        # ?search=<str> — match file_title or file_name
+        search = request.query_params.get("search", "").strip().lower()
+        if search:
+            all_blocks = [
+                b
+                for b in all_blocks
+                if search in (b["dataset"].file_title or "").lower()
+                or search in b["dataset"].file_name.lower()
+            ]
+
+        # ?date_from=YYYY-MM-DD — latest report generated on or after
+        date_from = request.query_params.get("date_from")
+        if date_from:
+            try:
+                from datetime import date as date_type
+
+                df_date = date_type.fromisoformat(date_from)
+                all_blocks = [
+                    b
+                    for b in all_blocks
+                    if b["latest_report"] is not None
+                    and b["latest_report"].generated_at.date() >= df_date
+                ]
+            except ValueError:
+                raise ValidationError(
+                    {"date_from": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # ?date_to=YYYY-MM-DD — latest report generated on or before
+        date_to = request.query_params.get("date_to")
+        if date_to:
+            try:
+                from datetime import date as date_type
+
+                dt_date = date_type.fromisoformat(date_to)
+                all_blocks = [
+                    b
+                    for b in all_blocks
+                    if b["latest_report"] is not None
+                    and b["latest_report"].generated_at.date() <= dt_date
+                ]
+            except ValueError:
+                raise ValidationError(
+                    {"date_to": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # ?created_from=YYYY-MM-DD — dataset uploaded on or after
+        created_from = request.query_params.get("created_from")
+        if created_from:
+            try:
+                from datetime import date as date_type
+
+                cf_date = date_type.fromisoformat(created_from)
+                all_blocks = [
+                    b for b in all_blocks if b["dataset"].created_at.date() >= cf_date
+                ]
+            except ValueError:
+                raise ValidationError(
+                    {"created_from": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # ?created_to=YYYY-MM-DD — dataset uploaded on or before
+        created_to = request.query_params.get("created_to")
+        if created_to:
+            try:
+                from datetime import date as date_type
+
+                ct_date = date_type.fromisoformat(created_to)
+                all_blocks = [
+                    b for b in all_blocks if b["dataset"].created_at.date() <= ct_date
+                ]
+            except ValueError:
+                raise ValidationError(
+                    {"created_to": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # ── Paginate the filtered list ────────────────────────────────────────
+        paginator = DataPulsePagination()
+        page = paginator.paginate_queryset(all_blocks, request)
+
         payload = {
-            "total_datasets": len(dataset_blocks),
-            "datasets": dataset_blocks,
+            "total_datasets": total_datasets,
+            "total_active_datasets": total_active,
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "results": page,
         }
 
         return Response(DashboardSerializer(payload).data)
