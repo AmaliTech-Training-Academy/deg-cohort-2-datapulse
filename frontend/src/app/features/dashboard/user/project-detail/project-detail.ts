@@ -1,20 +1,45 @@
-import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { MockDataService } from '../../../../shared/services/mock-data.service';
+import { Actions, ofType } from '@ngrx/effects';
 import { ValidationRule, ScoreTrendPoint } from '../../../../shared/models/dashboard.models';
 import { selectUserRole } from '../../../../features/auth/store/auth.selectors';
 import { StatCardComponent } from '../../../../shared/ui/stat-card/stat-card';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge';
 import { TrendChartComponent } from '../../../../shared/ui/trend-chart/trend-chart';
 import { ConfirmationModalComponent } from '../../../../shared/ui/confirmation-modal/confirmation-modal';
+import { StepErrorComponent } from '../../../../shared/ui/step-error/step-error';
 import * as ProjectDetailActions from '../../store/project-detail/project-detail.actions';
 import * as ReportsActions from '../../store/reports/reports.actions';
 import * as TrendsActions from '../../store/trends/trends.actions';
-import { selectProjectDetailDataset, selectProjectDetailLoading } from '../../store/project-detail/project-detail.selectors';
-import { selectAllReports, selectReportsLoading, selectReportsSummary } from '../../store/reports/reports.selectors';
+import * as ValidationRulesActions from '../../store/validation-rules/validation-rules.actions';
+import {
+  selectProjectDetailDataset,
+  selectProjectDetailLoading,
+} from '../../store/project-detail/project-detail.selectors';
+import {
+  selectAllReports,
+  selectReportsLoading,
+  selectReportsSummary,
+} from '../../store/reports/reports.selectors';
 import { selectTrendsData, selectTrendsLoading } from '../../store/trends/trends.selectors';
+import {
+  selectAddRuleError,
+  selectAddRuleLoading,
+  selectAllRules,
+  selectDeleteError,
+  selectDeleteLoadingId,
+  selectHasChanges,
+  selectRunCheckError,
+  selectRunCheckLoading,
+  selectRulesLoading,
+} from '../../store/validation-rules/validation-rules.selectors';
 import { ProjectStatus } from '../../models/project.model';
+import {
+  buildRuleConfig,
+  mapFrontendTypeToApi,
+} from '../../models/validation-rule.model';
 
 interface EditDraft {
   name: string;
@@ -23,7 +48,6 @@ interface EditDraft {
   column: string;
 }
 
-// View model that maps API data into the shape the template expects
 interface ReportAsDataset {
   id: string;
   projectId: string;
@@ -52,20 +76,27 @@ interface ProjectDetailView {
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [RouterLink, StatCardComponent, BadgeComponent, TrendChartComponent, ConfirmationModalComponent],
+  imports: [
+    RouterLink,
+    StatCardComponent,
+    BadgeComponent,
+    TrendChartComponent,
+    ConfirmationModalComponent,
+    StepErrorComponent,
+  ],
   templateUrl: './project-detail.html',
   styleUrl: './project-detail.css',
 })
 export class ProjectDetailComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
-  private readonly dataService = inject(MockDataService);
   private readonly store = inject(Store);
+  private readonly actions$ = inject(Actions);
 
   protected readonly role = this.store.selectSignal(selectUserRole);
   protected readonly projectsLink = () =>
     this.role() === 'admin' ? '/dashboard/all-projects' : '/dashboard/projects';
 
-  // Store signals
+  // Project detail store signals
   private readonly datasetFromStore = this.store.selectSignal(selectProjectDetailDataset);
   private readonly projectDetailLoading = this.store.selectSignal(selectProjectDetailLoading);
   private readonly allReports = this.store.selectSignal(selectAllReports);
@@ -74,12 +105,10 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   private readonly reportsLoading = this.store.selectSignal(selectReportsLoading);
   private readonly trendsLoading = this.store.selectSignal(selectTrendsLoading);
 
-  // Combined loading — true until all three APIs respond
   protected readonly loading = computed(
     () => this.projectDetailLoading() || this.reportsLoading() || this.trendsLoading(),
   );
 
-  // Combined view model built from store data
   protected readonly project = computed((): ProjectDetailView | undefined => {
     const dataset = this.datasetFromStore();
     if (!dataset) return undefined;
@@ -121,13 +150,36 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     };
   });
 
-  // Manage rules view — kept with MockDataService (rule management not in scope)
+  // Validation rules store signals
+  private readonly storeRules = this.store.selectSignal(selectAllRules);
+  protected readonly rulesLoading = this.store.selectSignal(selectRulesLoading);
+  protected readonly addRuleLoading = this.store.selectSignal(selectAddRuleLoading);
+  protected readonly addRuleError = this.store.selectSignal(selectAddRuleError);
+  protected readonly deleteLoadingId = this.store.selectSignal(selectDeleteLoadingId);
+  protected readonly deleteError = this.store.selectSignal(selectDeleteError);
+  protected readonly runCheckLoading = this.store.selectSignal(selectRunCheckLoading);
+  protected readonly runCheckError = this.store.selectSignal(selectRunCheckError);
+  protected readonly hasChanges = this.store.selectSignal(selectHasChanges);
+
+  // Local overlays applied on top of store rules (toggle/edit don't persist to backend)
+  private readonly localToggledOff = signal(new Set<string>());
+  private readonly localEdits = signal(new Map<string, Partial<ValidationRule>>());
+
+  protected readonly validationRules = computed(() => {
+    const toggled = this.localToggledOff();
+    const edits = this.localEdits();
+    return this.storeRules().map((r) => ({
+      ...r,
+      ...(edits.get(r.id) ?? {}),
+      enabled: !toggled.has(r.id),
+    }));
+  });
+
+  // Manage rules UI state
   protected readonly showManageRules = signal(false);
   protected readonly selectedDatasetId = signal<string>('');
-  protected readonly validationRules = signal<ValidationRule[]>([]);
-  protected readonly datasetColumns = signal<string[]>([]);
 
-  // Add rule form state
+  // Add rule form
   protected readonly newRuleType = signal('not_null');
   protected readonly newRuleColumn = signal('');
   protected readonly newRuleParams = signal('');
@@ -138,6 +190,9 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   // Delete rule state
   protected readonly deleteTargetId = signal<string | null>(null);
+
+  // Derived from store dataset
+  protected readonly datasetColumns = computed(() => this.datasetFromStore()?.columns ?? []);
 
   protected readonly selectedDataset = computed(() =>
     this.project()?.datasets.find((d) => d.id === this.selectedDatasetId()),
@@ -151,13 +206,34 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.validationRules().find((r) => r.id === this.deleteTargetId()),
   );
 
+  constructor() {
+    // Reset local overlays whenever the canonical rule list reloads
+    effect(() => {
+      this.storeRules();
+      this.localToggledOff.set(new Set());
+      this.localEdits.set(new Map());
+    });
+
+    // Pre-select first column for the add-rule form once columns are available
+    effect(() => {
+      const cols = this.datasetColumns();
+      if (cols.length && !this.newRuleColumn()) {
+        this.newRuleColumn.set(cols[0]);
+      }
+    });
+
+    // Close manage-rules panel and return to project-detail view after run-check completes
+    this.actions$
+      .pipe(ofType(ValidationRulesActions.runChecksOnDatasetSuccess), takeUntilDestroyed())
+      .subscribe(() => this.showManageRules.set(false));
+  }
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
-    // Clear stale state before loading new project
     this.store.dispatch(ProjectDetailActions.clearProjectDetail());
     this.store.dispatch(ReportsActions.clearReports());
     this.store.dispatch(TrendsActions.clearTrends());
-    // Dispatch all three in parallel — effects run concurrently
+    this.store.dispatch(ValidationRulesActions.clearValidationRules());
     this.store.dispatch(ProjectDetailActions.loadProjectDetail({ datasetId: id }));
     this.store.dispatch(ReportsActions.loadReports({ datasetId: id }));
     this.store.dispatch(TrendsActions.loadTrends({ datasetId: id }));
@@ -167,13 +243,17 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.store.dispatch(ProjectDetailActions.clearProjectDetail());
     this.store.dispatch(ReportsActions.clearReports());
     this.store.dispatch(TrendsActions.clearTrends());
+    this.store.dispatch(ValidationRulesActions.clearValidationRules());
   }
 
   protected openManageRules(): void {
+    const datasetId = this.datasetFromStore()?.id;
+    if (datasetId) {
+      this.store.dispatch(ValidationRulesActions.loadRules({ datasetId }));
+    }
     const firstDataset = this.project()?.datasets[0];
     if (firstDataset) {
       this.selectedDatasetId.set(firstDataset.id);
-      this.loadDatasetData(firstDataset.id);
     }
     this.showManageRules.set(true);
   }
@@ -181,26 +261,24 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   protected selectDataset(id: string): void {
     this.cancelEdit();
     this.selectedDatasetId.set(id);
-    this.loadDatasetData(id);
+    // rules are dataset-level (not per-report), no reload needed
   }
 
-  private loadDatasetData(id: string): void {
-    this.dataService.getValidationRules(id).subscribe((rules) => this.validationRules.set(rules));
-    this.dataService.getDatasetColumns(id).subscribe((cols) => {
-      this.datasetColumns.set(cols);
-      if (cols.length) this.newRuleColumn.set(cols[0]);
+  // ── Toggle (local only, does not persist to backend) ────────────────────────
+
+  protected toggleRule(id: string): void {
+    this.localToggledOff.update((set) => {
+      const next = new Set(set);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
     });
   }
 
-  // ── Toggle ──────────────────────────────────────────────────────────────────
-
-  protected toggleRule(id: string): void {
-    this.validationRules.update((rules) =>
-      rules.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)),
-    );
-  }
-
-  // ── Edit ────────────────────────────────────────────────────────────────────
+  // ── Edit (local only, does not persist to backend) ──────────────────────────
 
   protected startEdit(rule: ValidationRule): void {
     this.editingRuleId.set(rule.id);
@@ -221,9 +299,11 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     const id = this.editingRuleId();
     const draft = this.editDraft();
     if (!id || !draft) return;
-    this.validationRules.update((rules) =>
-      rules.map((r) => (r.id === id ? { ...r, ...draft } : r)),
-    );
+    this.localEdits.update((map) => {
+      const next = new Map(map);
+      next.set(id, draft);
+      return next;
+    });
     this.editingRuleId.set(null);
     this.editDraft.set(null);
   }
@@ -241,7 +321,9 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
 
   protected confirmDelete(): void {
     const id = this.deleteTargetId();
-    if (id) this.validationRules.update((rules) => rules.filter((r) => r.id !== id));
+    if (id) {
+      this.store.dispatch(ValidationRulesActions.deleteRule({ ruleId: id }));
+    }
     this.deleteTargetId.set(null);
   }
 
@@ -252,20 +334,33 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
   // ── Add ─────────────────────────────────────────────────────────────────────
 
   protected addRule(): void {
-    const type = this.newRuleType() as ValidationRule['type'];
     const col = this.newRuleColumn();
-    if (!col) return;
-    const newRule: ValidationRule = {
-      id: 'r' + Date.now(),
-      name: `${type.replace('_', ' ')} on ${col}`,
-      description: `${col} must pass ${type.replace('_', ' ')} check`,
-      type,
-      column: col,
-      enabled: true,
-      status: 'passing',
-    };
-    this.validationRules.update((rules) => [...rules, newRule]);
+    const datasetId = this.datasetFromStore()?.id;
+    if (!col || !datasetId) return;
+
+    const type = this.newRuleType();
+    const params = this.newRuleParams();
+
+    this.store.dispatch(
+      ValidationRulesActions.addRule({
+        datasetId,
+        request: {
+          column_name: col,
+          rule_type: mapFrontendTypeToApi(type),
+          rule_config: buildRuleConfig(type, params),
+        },
+      }),
+    );
     this.newRuleParams.set('');
+  }
+
+  // ── Re-run checks ────────────────────────────────────────────────────────────
+
+  protected reRunChecks(): void {
+    const datasetId = this.datasetFromStore()?.id;
+    if (datasetId) {
+      this.store.dispatch(ValidationRulesActions.runChecksOnDataset({ datasetId }));
+    }
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
