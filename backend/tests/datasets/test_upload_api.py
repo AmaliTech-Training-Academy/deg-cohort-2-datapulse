@@ -136,16 +136,34 @@ class TestDatasetList:
         ids = [d["id"] for d in resp.json()["results"]]
         assert uploaded["id"] in ids
 
-    def test_list_isolated_per_user(
-        self, auth_client, uploaded, api_client, admin_user
-    ):
+    def test_list_isolated_per_user(self, uploaded, api_client):
+        """A second regular user cannot see another user's datasets."""
+        from django.contrib.auth import get_user_model
         from rest_framework_simplejwt.tokens import RefreshToken
 
-        token = RefreshToken.for_user(admin_user)
+        User = get_user_model()
+        other_user = User.objects.create_user(
+            username="other@datapulse.com",
+            email="other@datapulse.com",
+            password="OtherPass123!",
+            role="user",
+            is_email_verified=True,
+        )
+        token = RefreshToken.for_user(other_user)
         api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.access_token}")
         resp = api_client.get(LIST_URL)
         assert resp.json()["count"] == 0
         assert resp.json()["results"] == []
+
+    def test_admin_sees_all_datasets(self, uploaded, admin_client):
+        """Admin users see all datasets across the platform with owner and report info."""
+        resp = admin_client.get(LIST_URL)
+        assert resp.status_code == 200
+        assert resp.json()["count"] == 1
+        dataset = resp.json()["results"][0]
+        assert "user" in dataset
+        assert "reports_count" in dataset
+        assert "latest_report" in dataset
 
     def test_unauthenticated_list_returns_401(self, api_client):
         resp = api_client.get(LIST_URL)

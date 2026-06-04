@@ -50,6 +50,7 @@ from core.pagination import DataPulsePagination
 
 from .models import Dataset
 from .serializers import (
+    AdminDatasetResponseSerializer,
     DatasetFileReplaceResponseSerializer,
     DatasetFileUpdateSerializer,
     DatasetMetadataUpdateSerializer,
@@ -231,16 +232,41 @@ class DatasetListView(APIView):
             ),
         ],
         responses={200: DatasetResponseSerializer(many=True)},
-        summary="List datasets for the authenticated user",
+        summary="List datasets",
         description=(
             "Returns a paginated list of the authenticated user's datasets. "
             "Supports filtering by file type, substring search, and upload date range."
         ),
     )
     def get(self, request: Request) -> Response:
+        from django.db.models import Count, OuterRef, Q, Subquery
         from rest_framework.exceptions import ValidationError as DRFValidationError
 
-        queryset = Dataset.objects.filter(user=request.user).order_by("-created_at")
+        from reports.models import QualityReport
+
+        if request.user.is_admin:
+            latest_report = QualityReport.objects.filter(
+                dataset=OuterRef("pk")
+            ).order_by("-generated_at")
+
+            queryset = (
+                Dataset.objects.select_related("user")
+                .annotate(
+                    reports_count=Count("reports"),
+                    ann_overall_score=Subquery(
+                        latest_report.values("overall_score")[:1]
+                    ),
+                    ann_status=Subquery(latest_report.values("status")[:1]),
+                    ann_generated_at=Subquery(
+                        latest_report.values("generated_at")[:1]
+                    ),
+                )
+                .order_by("-created_at")
+            )
+            serializer_class = AdminDatasetResponseSerializer
+        else:
+            queryset = Dataset.objects.filter(user=request.user).order_by("-created_at")
+            serializer_class = DatasetResponseSerializer
 
         # Filter: ?file_type=csv|json
         file_type = request.query_params.get("file_type")
@@ -250,8 +276,6 @@ class DatasetListView(APIView):
         # Filter: ?search=<str> — matches file_title or file_name
         search = request.query_params.get("search", "").strip()
         if search:
-            from django.db.models import Q
-
             queryset = queryset.filter(
                 Q(file_title__icontains=search) | Q(file_name__icontains=search)
             )
@@ -278,9 +302,7 @@ class DatasetListView(APIView):
 
         paginator = DataPulsePagination()
         page = paginator.paginate_queryset(queryset, request)
-        return paginator.get_paginated_response(
-            DatasetResponseSerializer(page, many=True).data
-        )
+        return paginator.get_paginated_response(serializer_class(page, many=True).data)
 
 
 class DatasetDetailView(APIView):
