@@ -97,10 +97,16 @@
         </div>
       </div>
 
+      <app-step-error [message]="uploadError()" />
       <div class="form-actions">
         <button class="btn-cancel" type="button" onclick="history.back()">Cancel</button>
-        <button class="btn-primary" type="button" [disabled]="!canContinue" (click)="onContinue()">
-          Continue
+        <button
+          class="btn-primary"
+          type="button"
+          [disabled]="!canContinue || uploadLoading()"
+          (click)="onContinue()"
+        >
+          {{ uploadLoading() ? 'Uploading…' : 'Continue' }}
           <svg
             width="16"
             height="16"

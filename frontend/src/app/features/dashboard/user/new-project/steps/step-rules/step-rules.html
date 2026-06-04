@@ -42,13 +42,28 @@
 </div>
 
 <div class="step-footer">
-  <button class="btn-back" type="button" (click)="back.emit()">Back</button>
+  <button class="btn-back" type="button" (click)="onBack()">Back</button>
   <div class="footer-right">
+    <app-step-error [message]="rulesError()" />
     <span class="enabled-count">{{ enabledCount() }} of {{ localRules().length }} rules enabled</span>
-    <button class="btn-primary" type="button" (click)="onRunChecks()">
-      Run checks
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="9 18 15 12 9 6"/>
+    <button
+      class="btn-primary"
+      type="button"
+      [disabled]="rulesLoading()"
+      (click)="onRunChecks()"
+    >
+      {{ rulesLoading() ? 'Saving…' : 'Run checks' }}
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="9 18 15 12 9 6" />
       </svg>
     </button>
   </div>

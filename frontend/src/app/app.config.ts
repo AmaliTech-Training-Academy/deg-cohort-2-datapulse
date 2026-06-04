@@ -21,6 +21,8 @@ import { trendsReducer } from './features/dashboard/store/trends/trends.reducer'
 import * as trendsEffects from './features/dashboard/store/trends/trends.effects';
 import { reportDetailReducer } from './features/dashboard/store/report-detail/report-detail.reducer';
 import * as reportDetailEffects from './features/dashboard/store/report-detail/report-detail.effects';
+import { projectCreationReducer } from './features/dashboard/store/project-creation/project-creation.reducer';
+import * as projectCreationEffects from './features/dashboard/store/project-creation/project-creation.effects';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -35,6 +37,7 @@ export const appConfig: ApplicationConfig = {
       reports: reportsReducer,
       trends: trendsReducer,
       reportDetail: reportDetailReducer,
+      projectCreation: projectCreationReducer,
     }),
     provideEffects(
       authEffects,
@@ -43,6 +46,7 @@ export const appConfig: ApplicationConfig = {
       reportsEffects,
       trendsEffects,
       reportDetailEffects,
+      projectCreationEffects,
     ),
     ...(environment.production ? [] : [provideStoreDevtools({ maxAge: 25 })]),
   ],

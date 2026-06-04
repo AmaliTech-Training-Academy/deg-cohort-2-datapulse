@@ -20,7 +20,7 @@
         <div class="checks-list">
           @for (rule of rules(); track rule.id) {
             @if (rule.enabled) {
-              <div class="check-item" [class.check-item--visible]="progress() > 20">
+              <div class="check-item" [class.check-item--visible]="localProgress() > 20">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -69,6 +69,7 @@
 
 <div class="step-footer">
   <button class="btn-back" type="button" (click)="back.emit()">Back</button>
+  <app-step-error [message]="runCheckError()" />
   @if (isComplete()) {
     <button class="btn-primary" type="button" (click)="createProject.emit()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
