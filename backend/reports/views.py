@@ -237,53 +237,193 @@ class DashboardView(APIView):
     """
     GET /api/v1/dashboard/
 
-    Aggregate view for the frontend dashboard. Returns every dataset the
-    user owns together with:
-      • latest_report — most recent quality report (score, status, date)
-      • trend         — all trend_metric snapshots ordered by date
+    Paginated aggregate view for the frontend dashboard.
 
-    Uses prefetch_related to avoid N+1 queries.
+    Returns a paginated list of the user's datasets, each enriched with:
+      • status              — quality band of the latest report
+      • latest_score        — overall_score of the most recent report
+      • latest_score_date   — generated_at of the most recent report
+      • latest_report       — full latest report summary block
+      (trend is excluded — use GET /datasets/<id>/trends/ for chart data)
+
+    Top-level summary fields (always present, unaffected by filters/pagination):
+      • total_datasets          — all datasets owned by the user
+      • total_active_datasets   — datasets that have at least one quality report
+
+    Filters (all optional, combinable):
+        ?status=healthy|warning|failing   filter by latest report quality band
+        ?search=<str>                     case-insensitive match on file_title or file_name
+        ?date_from=YYYY-MM-DD             datasets whose latest report was generated on or after
+        ?date_to=YYYY-MM-DD               datasets whose latest report was generated on or before
+
+    Pagination:
+        ?page=<n>           page number (default 1)
+        ?page_size=<n>      items per page (default 20, max 100)
     """
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="status",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Filter by latest report quality band.",
+                required=False,
+                enum=["healthy", "warning", "failing"],
+            ),
+            OpenApiParameter(
+                name="search",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Case-insensitive substring match on file_title or file_name.",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="date_from",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Only include datasets whose latest report was generated on or after this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="date_to",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Only include datasets whose latest report was generated on or before this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Page number (default 1).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Items per page (default 20, max 100).",
+                required=False,
+            ),
+        ],
         responses={200: DashboardSerializer},
         summary="Retrieve the quality dashboard",
         description=(
-            "Returns all datasets for the authenticated user, each with their latest "
-            "quality report summary and full trend history. Optimised with prefetch_related "
-            "to avoid N+1 queries."
+            "Returns a paginated list of the user's datasets enriched with their "
+            "latest quality report summary. Supports filtering by status, search, "
+            "and date range. Trend data is excluded — use GET /datasets/<id>/trends/ "
+            "for chart data."
         ),
     )
     def get(self, request: Request) -> Response:
-        datasets = Dataset.objects.filter(user=request.user).prefetch_related(
+        from django.db.models import OuterRef, Subquery
+
+        # ── Base queryset — all datasets for this user ────────────────────────
+        base_qs = Dataset.objects.filter(user=request.user)
+        total_datasets = base_qs.count()
+
+        # ── Annotate each dataset with its latest report via subquery ─────────
+        # Using Subquery instead of prefetch so we can filter on report fields
+        # without a costly Python-side loop.
+        latest_report_subquery = (
+            QualityReport.objects.filter(dataset=OuterRef("pk"))
+            .order_by("-generated_at")
+            .values("id")[:1]
+        )
+        datasets_with_report = base_qs.prefetch_related(
             Prefetch(
                 "reports",
                 queryset=QualityReport.objects.order_by("-generated_at"),
                 to_attr="all_reports",
-            ),
-            Prefetch(
-                "trend_metrics",
-                queryset=TrendMetric.objects.order_by("snapshot_date"),
-                to_attr="trends",
-            ),
-        )
+            )
+        ).annotate(latest_report_id=Subquery(latest_report_subquery))
 
-        dataset_blocks = []
-        for dataset in datasets:
+        # ── Build dataset blocks — resolve latest report per dataset ──────────
+        all_blocks = []
+        for dataset in datasets_with_report:
             latest_report = dataset.all_reports[0] if dataset.all_reports else None
-            dataset_blocks.append(
+            all_blocks.append(
                 {
                     "dataset": dataset,
                     "latest_report": latest_report,
-                    "trend": dataset.trends,
                 }
             )
 
+        # total_active_datasets — datasets that have at least one report
+        total_active = sum(1 for b in all_blocks if b["latest_report"] is not None)
+
+        # ── Apply filters in Python (after prefetch, avoids extra queries) ────
+
+        # ?status=healthy|warning|failing
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            all_blocks = [
+                b
+                for b in all_blocks
+                if b["latest_report"] is not None
+                and b["latest_report"].status == status_filter
+            ]
+
+        # ?search=<str> — match file_title or file_name
+        search = request.query_params.get("search", "").strip().lower()
+        if search:
+            all_blocks = [
+                b
+                for b in all_blocks
+                if search in (b["dataset"].file_title or "").lower()
+                or search in b["dataset"].file_name.lower()
+            ]
+
+        # ?date_from=YYYY-MM-DD — latest report generated on or after
+        date_from = request.query_params.get("date_from")
+        if date_from:
+            try:
+                from datetime import date as date_type
+
+                df_date = date_type.fromisoformat(date_from)
+                all_blocks = [
+                    b
+                    for b in all_blocks
+                    if b["latest_report"] is not None
+                    and b["latest_report"].generated_at.date() >= df_date
+                ]
+            except ValueError:
+                raise ValidationError(
+                    {"date_from": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # ?date_to=YYYY-MM-DD — latest report generated on or before
+        date_to = request.query_params.get("date_to")
+        if date_to:
+            try:
+                from datetime import date as date_type
+
+                dt_date = date_type.fromisoformat(date_to)
+                all_blocks = [
+                    b
+                    for b in all_blocks
+                    if b["latest_report"] is not None
+                    and b["latest_report"].generated_at.date() <= dt_date
+                ]
+            except ValueError:
+                raise ValidationError(
+                    {"date_to": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # ── Paginate the filtered list ────────────────────────────────────────
+        paginator = DataPulsePagination()
+        page = paginator.paginate_queryset(all_blocks, request)
+
         payload = {
-            "total_datasets": len(dataset_blocks),
-            "datasets": dataset_blocks,
+            "total_datasets": total_datasets,
+            "total_active_datasets": total_active,
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "results": page,
         }
 
         return Response(DashboardSerializer(payload).data)
