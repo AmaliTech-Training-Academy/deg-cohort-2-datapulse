@@ -104,3 +104,7 @@ data-engineering/
     ├── analytics_schema.sql ← analytics table DDL
     └── analytics_queries.sql← trend and report queries
 ```
+
+## Documentation
+
+For full schema reference — all tables, columns, indexes, ETL flow, and validation rule types — see [`docs/data_dictionary.md`](docs/data_dictionary.md).
