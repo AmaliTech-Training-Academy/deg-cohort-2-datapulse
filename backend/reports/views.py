@@ -77,6 +77,13 @@ class ReportListView(APIView):
         dataset_file_title     — file title snapshot at check time
         dataset_file_version   — file version snapshot at check time
         file_rows_analyzed     — total_rows_passed + total_rows_failed
+
+    Filters (all optional, combinable):
+        ?status=healthy|warning|failing
+        ?date_from=YYYY-MM-DD   reports generated on or after this date
+        ?date_to=YYYY-MM-DD     reports generated on or before this date
+        ?score_min=<0-100>      reports with overall_score >= this value
+        ?score_max=<0-100>      reports with overall_score <= this value
     """
 
     permission_classes = [IsAuthenticated]
@@ -106,6 +113,20 @@ class ReportListView(APIView):
                 required=False,
             ),
             OpenApiParameter(
+                name="score_min",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Return reports with overall_score >= this value (0–100).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="score_max",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Return reports with overall_score <= this value (0–100).",
+                required=False,
+            ),
+            OpenApiParameter(
                 name="page",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.QUERY,
@@ -125,7 +146,8 @@ class ReportListView(APIView):
         description=(
             "Returns a paginated list of quality reports enriched with dataset-level "
             "summary statistics. Findings are excluded — use GET /reports/<id>/ for "
-            "the full report with nested findings."
+            "the full report with nested findings. "
+            "Supports filtering by status, date range, and score range."
         ),
     )
     def get(self, request: Request, dataset_id: str) -> Response:
@@ -177,6 +199,26 @@ class ReportListView(APIView):
             except (ValueError, TypeError):
                 raise ValidationError(
                     {"date_to": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # Filter: ?score_min=<int> — overall_score >= value
+        score_min = request.query_params.get("score_min")
+        if score_min is not None:
+            try:
+                queryset = queryset.filter(overall_score__gte=int(score_min))
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    {"score_min": "Must be an integer between 0 and 100."}
+                )
+
+        # Filter: ?score_max=<int> — overall_score <= value
+        score_max = request.query_params.get("score_max")
+        if score_max is not None:
+            try:
+                queryset = queryset.filter(overall_score__lte=int(score_max))
+            except (ValueError, TypeError):
+                raise ValidationError(
+                    {"score_max": "Must be an integer between 0 and 100."}
                 )
 
         # ── Paginate ──────────────────────────────────────────────────────────
@@ -320,6 +362,8 @@ class DashboardView(APIView):
         ?search=<str>                     case-insensitive match on file_title or file_name
         ?date_from=YYYY-MM-DD             datasets whose latest report was generated on or after
         ?date_to=YYYY-MM-DD               datasets whose latest report was generated on or before
+        ?created_from=YYYY-MM-DD          datasets uploaded on or after this date
+        ?created_to=YYYY-MM-DD            datasets uploaded on or before this date
 
     Pagination:
         ?page=<n>           page number (default 1)
@@ -357,6 +401,20 @@ class DashboardView(APIView):
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
                 description="Only include datasets whose latest report was generated on or before this date (YYYY-MM-DD).",  # noqa: E501
+                required=False,
+            ),
+            OpenApiParameter(
+                name="created_from",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Only include datasets uploaded on or after this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="created_to",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Only include datasets uploaded on or before this date (YYYY-MM-DD).",
                 required=False,
             ),
             OpenApiParameter(
@@ -476,6 +534,40 @@ class DashboardView(APIView):
             except ValueError:
                 raise ValidationError(
                     {"date_to": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # ?created_from=YYYY-MM-DD — dataset uploaded on or after
+        created_from = request.query_params.get("created_from")
+        if created_from:
+            try:
+                from datetime import date as date_type
+
+                cf_date = date_type.fromisoformat(created_from)
+                all_blocks = [
+                    b
+                    for b in all_blocks
+                    if b["dataset"].created_at.date() >= cf_date
+                ]
+            except ValueError:
+                raise ValidationError(
+                    {"created_from": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # ?created_to=YYYY-MM-DD — dataset uploaded on or before
+        created_to = request.query_params.get("created_to")
+        if created_to:
+            try:
+                from datetime import date as date_type
+
+                ct_date = date_type.fromisoformat(created_to)
+                all_blocks = [
+                    b
+                    for b in all_blocks
+                    if b["dataset"].created_at.date() <= ct_date
+                ]
+            except ValueError:
+                raise ValidationError(
+                    {"created_to": "Invalid date format. Use YYYY-MM-DD."}
                 )
 
         # ── Paginate the filtered list ────────────────────────────────────────
