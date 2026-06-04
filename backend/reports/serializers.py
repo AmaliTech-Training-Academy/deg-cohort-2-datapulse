@@ -42,6 +42,8 @@ class QualityReportSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "dataset",
+            "dataset_file_title",
+            "dataset_file_version",
             "status",
             "overall_score",
             "total_rows_passed",
@@ -107,6 +109,8 @@ class DashboardDatasetSerializer(serializers.Serializer):
             return None
         return {
             "id": str(report.id),
+            "dataset_file_title": report.dataset_file_title,
+            "dataset_file_version": report.dataset_file_version,
             "status": report.status,
             "overall_score": report.overall_score,
             "total_rows_passed": report.total_rows_passed,
