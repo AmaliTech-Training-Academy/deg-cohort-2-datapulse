@@ -352,7 +352,7 @@
         </div>
         @if (role() !== 'admin') {
           <div class="header-actions">
-            <button class="btn-secondary" type="button">
+            <button class="btn-secondary" type="button" (click)="openUploadModal()">
               <svg
                 width="16"
                 height="16"
@@ -470,4 +470,84 @@
   }
 } @else {
   <div class="loading">Project not found.</div>
+}
+
+@if (showUploadModal()) {
+  <div class="upload-overlay">
+    <div class="upload-modal">
+      <div class="upload-modal__header">
+        <h2 class="upload-modal__title">Upload new version</h2>
+        <button class="upload-modal__close" type="button" (click)="closeUploadModal()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <p class="upload-modal__subtitle">Drop a new .csv or .json file to replace the current dataset version.</p>
+
+      <div
+        class="upload-dropzone"
+        role="button"
+        tabindex="0"
+        [class.upload-dropzone--over]="uploadIsDragOver()"
+        (dragover)="onUploadDragOver($event)"
+        (dragleave)="onUploadDragLeave()"
+        (drop)="onUploadDrop($event)"
+        (click)="versionFileInput.click()"
+        (keydown.enter)="versionFileInput.click()"
+        (keydown.space)="versionFileInput.click()"
+        aria-label="Upload new dataset version"
+      >
+        @if (uploadFileName()) {
+          <div class="upload-dropzone__file">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span class="upload-dropzone__filename">{{ uploadFileName() }}</span>
+          </div>
+        } @else {
+          <div class="upload-dropzone__content">
+            <div class="upload-dropzone__icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </div>
+            <p class="upload-dropzone__text"><strong>Drop your file here, or browse</strong></p>
+            <p class="upload-dropzone__hint">
+              Supports <span class="upload-file-type">.csv</span> and
+              <span class="upload-file-type">.json</span> · 50 MB max
+            </p>
+          </div>
+        }
+        <input
+          #versionFileInput
+          type="file"
+          accept=".csv,.json"
+          style="display: none"
+          (change)="onUploadFileSelect($event)"
+        />
+      </div>
+
+      @if (uploadParseError()) {
+        <p class="upload-parse-error">{{ uploadParseError() }}</p>
+      }
+      <app-step-error [message]="uploadVersionError()" />
+
+      <div class="upload-modal__actions">
+        <button class="btn-secondary" type="button" (click)="closeUploadModal()">Cancel</button>
+        <button
+          class="btn-primary"
+          type="button"
+          [disabled]="!uploadFileName() || uploadVersionLoading()"
+          (click)="submitUploadVersion()"
+        >
+          {{ uploadVersionLoading() ? 'Uploading…' : 'Upload version' }}
+        </button>
+      </div>
+    </div>
+  </div>
 }

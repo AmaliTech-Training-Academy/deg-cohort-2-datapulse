@@ -53,10 +53,7 @@ export class DashboardApiService {
   }
 
   runChecks(datasetId: string): Observable<RunCheckResponse> {
-    return this.http.post<RunCheckResponse>(
-      `${this.base}/datasets/${datasetId}/run-check/`,
-      null,
-    );
+    return this.http.post<RunCheckResponse>(`${this.base}/datasets/${datasetId}/run-check/`, null);
   }
 
   getRules(datasetId: string): Observable<ApiRulesListResponse> {
@@ -69,5 +66,11 @@ export class DashboardApiService {
 
   deleteRule(ruleId: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/rules/${ruleId}/`);
+  }
+
+  uploadNewVersion(datasetId: string, file: File): Observable<void> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.patch<void>(`${this.base}/datasets/${datasetId}/file/`, formData);
   }
 }
