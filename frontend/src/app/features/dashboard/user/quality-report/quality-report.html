@@ -13,22 +13,9 @@
     <div class="page__header">
       <div>
         <h1 class="page__title">Quality report</h1>
-        <p class="page__subtitle">{{ r.datasetName }} — rows checked against {{ r.findings.length }} rules</p>
-      </div>
-      <div class="header-actions">
-        <span class="version-selector">{{ r.version }} · latest ▾</span>
-        <button class="btn-secondary" type="button">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          Export
-        </button>
-        <button class="btn-primary" type="button">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
-          </svg>
-          Re-run
-        </button>
+        <p class="page__subtitle">
+          {{ r.datasetName }} — rows checked against {{ r.findings.length }} rules
+        </p>
       </div>
     </div>
 
@@ -44,28 +31,52 @@
             <span class="category-name">Null checks</span>
             <span class="category-value">{{ r.categoryScores.nullChecks }}%</span>
             <div class="category-bar">
-              <div class="category-fill" [style.width.%]="r.categoryScores.nullChecks" [style.background]="r.categoryScores.nullChecks >= 85 ? 'var(--color-success)' : 'var(--color-warning)'"></div>
+              <div
+                class="category-fill"
+                [style.width.%]="r.categoryScores.nullChecks"
+                [style.background]="
+                  r.categoryScores.nullChecks >= 85
+                    ? 'var(--color-success)'
+                    : 'var(--color-warning)'
+                "
+              ></div>
             </div>
           </div>
           <div class="category-item">
             <span class="category-name">Type checks</span>
             <span class="category-value">{{ r.categoryScores.typeChecks }}%</span>
             <div class="category-bar">
-              <div class="category-fill" [style.width.%]="r.categoryScores.typeChecks" [style.background]="'var(--color-success)'"></div>
+              <div
+                class="category-fill"
+                [style.width.%]="r.categoryScores.typeChecks"
+                [style.background]="'var(--color-success)'"
+              ></div>
             </div>
           </div>
           <div class="category-item">
             <span class="category-name">Range checks</span>
             <span class="category-value">{{ r.categoryScores.rangeChecks }}%</span>
             <div class="category-bar">
-              <div class="category-fill" [style.width.%]="r.categoryScores.rangeChecks" [style.background]="r.categoryScores.rangeChecks >= 85 ? 'var(--color-success)' : 'var(--color-warning)'"></div>
+              <div
+                class="category-fill"
+                [style.width.%]="r.categoryScores.rangeChecks"
+                [style.background]="
+                  r.categoryScores.rangeChecks >= 85
+                    ? 'var(--color-success)'
+                    : 'var(--color-warning)'
+                "
+              ></div>
             </div>
           </div>
           <div class="category-item">
             <span class="category-name">Uniqueness</span>
             <span class="category-value">{{ r.categoryScores.uniqueness }}%</span>
             <div class="category-bar">
-              <div class="category-fill" [style.width.%]="r.categoryScores.uniqueness" [style.background]="'var(--color-success)'"></div>
+              <div
+                class="category-fill"
+                [style.width.%]="r.categoryScores.uniqueness"
+                [style.background]="'var(--color-success)'"
+              ></div>
             </div>
           </div>
         </div>
@@ -74,17 +85,27 @@
       <div class="card findings-card">
         <div class="card__header">
           <h2 class="card__title">Findings</h2>
-          <p class="card__subtitle">{{ r.findings.length }} checks · {{ r.findings.filter(f => f.status === 'failed').length }} with issues</p>
-          <div style="flex:1"></div>
+          <p class="card__subtitle">
+            {{ r.findings.length }} checks ·
+            {{ r.findings.filter((f) => f.status === 'failed').length }} with issues
+          </p>
+          <div style="flex: 1"></div>
           <span class="rules-count">{{ r.findings.length }} rules</span>
         </div>
         <div class="findings-list">
           @for (finding of r.findings; track finding.id) {
             <div class="finding-item" [class.finding-item--failed]="finding.status === 'failed'">
               <div class="finding-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
                   [attr.stroke]="findingIconColor(finding.status)"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <path [attr.d]="findingIcon(finding.status, finding.type)" />
                 </svg>
               </div>
@@ -94,7 +115,9 @@
               </div>
               <div class="finding-result">
                 @if (finding.status === 'failed' && finding.failingRows) {
-                  <span class="finding-pill finding-pill--fail">{{ finding.failingRows.toLocaleString() }} rows</span>
+                  <span class="finding-pill finding-pill--fail"
+                    >{{ finding.failingRows.toLocaleString() }} rows</span
+                  >
                 } @else if (finding.status === 'passed') {
                   <span class="finding-pill finding-pill--pass">● Pass</span>
                 }

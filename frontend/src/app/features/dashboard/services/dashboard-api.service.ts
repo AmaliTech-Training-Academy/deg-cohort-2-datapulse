@@ -10,6 +10,11 @@ import { ApiReportDetail } from '../models/report-detail.model';
 import { DatasetUploadResponse } from '../models/dataset-upload.model';
 import { RulesBatchRequest, RulesBatchResponse } from '../models/rules-batch.model';
 import { RunCheckResponse } from '../models/run-check.model';
+import {
+  ApiRulesListResponse,
+  ApiValidationRule,
+  CreateRuleRequest,
+} from '../models/validation-rule.model';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardApiService {
@@ -52,5 +57,17 @@ export class DashboardApiService {
       `${this.base}/datasets/${datasetId}/run-check/`,
       null,
     );
+  }
+
+  getRules(datasetId: string): Observable<ApiRulesListResponse> {
+    return this.http.get<ApiRulesListResponse>(`${this.base}/datasets/${datasetId}/rules/`);
+  }
+
+  createRule(datasetId: string, request: CreateRuleRequest): Observable<ApiValidationRule> {
+    return this.http.post<ApiValidationRule>(`${this.base}/datasets/${datasetId}/rules/`, request);
+  }
+
+  deleteRule(ruleId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/rules/${ruleId}/`);
   }
 }

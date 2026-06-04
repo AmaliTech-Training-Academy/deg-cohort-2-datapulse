@@ -23,6 +23,8 @@ import { reportDetailReducer } from './features/dashboard/store/report-detail/re
 import * as reportDetailEffects from './features/dashboard/store/report-detail/report-detail.effects';
 import { projectCreationReducer } from './features/dashboard/store/project-creation/project-creation.reducer';
 import * as projectCreationEffects from './features/dashboard/store/project-creation/project-creation.effects';
+import { validationRulesReducer } from './features/dashboard/store/validation-rules/validation-rules.reducer';
+import * as validationRulesEffects from './features/dashboard/store/validation-rules/validation-rules.effects';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -38,6 +40,7 @@ export const appConfig: ApplicationConfig = {
       trends: trendsReducer,
       reportDetail: reportDetailReducer,
       projectCreation: projectCreationReducer,
+      validationRules: validationRulesReducer,
     }),
     provideEffects(
       authEffects,
@@ -47,6 +50,7 @@ export const appConfig: ApplicationConfig = {
       trendsEffects,
       reportDetailEffects,
       projectCreationEffects,
+      validationRulesEffects,
     ),
     ...(environment.production ? [] : [provideStoreDevtools({ maxAge: 25 })]),
   ],
