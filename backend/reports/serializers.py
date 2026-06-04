@@ -2,7 +2,10 @@
 reports/serializers.py
 ────────────────────────────────────────────────────────────────────────────────
 RuleFindingSerializer      — per-rule results nested inside a report (detail only)
-QualityReportSerializer    — full report response with findings (run-check API)
+QualityReportSerializer    — base report response with findings (internal use)
+RunCheckResponseSerializer — enriched POST /run-check/ response with average_score,
+                             rules_applied, failing_checks, passing_checks,
+                             rule_type_scores, and all existing fields
 ReportDetailSerializer     — enriched report detail (GET /reports/<id>/) with
                              dataset_file_name, rules_applied, rows_analyzed,
                              and per-rule-type average scores
@@ -58,6 +61,108 @@ class QualityReportSerializer(serializers.ModelSerializer):
             "generated_at",
         ]
         read_only_fields = fields
+
+
+class RunCheckResponseSerializer(serializers.ModelSerializer):
+    """
+    Enriched serializer for POST /api/v1/datasets/<id>/run-check/.
+
+    Adds on top of QualityReportSerializer:
+
+        average_score       — overall quality score (0-100), surfaced explicitly
+                              as average_score to make the semantic clear.
+                              Identical to overall_score.
+        rules_applied       — total number of rules that ran in this check
+        failing_checks      — number of rules where at least one row failed
+        passing_checks      — number of rules where every row passed
+        rule_type_scores    — per-rule-type average pass rate (0-100) across
+                              all findings in this run.  Always includes all 4
+                              keys; null for rule types not present in this check.
+
+                              Example:
+                              {
+                                "null_check":       92,
+                                "type_check":       100,
+                                "range_check":      75,
+                                "uniqueness_check": null
+                              }
+
+    All existing QualityReportSerializer fields are preserved:
+        id, dataset, dataset_file_title, dataset_file_version,
+        status, overall_score, total_rows_passed, total_rows_failed,
+        error_message, findings, generated_at
+    """
+
+    findings = RuleFindingSerializer(many=True, read_only=True)
+    average_score = serializers.SerializerMethodField()
+    rules_applied = serializers.SerializerMethodField()
+    failing_checks = serializers.SerializerMethodField()
+    passing_checks = serializers.SerializerMethodField()
+    rule_type_scores = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QualityReport
+        fields = [
+            # ── Existing fields ───────────────────────────────────────────
+            "id",
+            "dataset",
+            "dataset_file_title",
+            "dataset_file_version",
+            "status",
+            "overall_score",
+            "total_rows_passed",
+            "total_rows_failed",
+            "error_message",
+            "findings",
+            "generated_at",
+            # ── New fields ────────────────────────────────────────────────
+            "average_score",
+            "rules_applied",
+            "failing_checks",
+            "passing_checks",
+            "rule_type_scores",
+        ]
+        read_only_fields = fields
+
+    def get_average_score(self, obj) -> int | None:
+        """Explicit alias for overall_score with clearer semantic meaning."""
+        return obj.overall_score
+
+    def get_rules_applied(self, obj) -> int:
+        """Total number of validation rules that ran in this check."""
+        return obj.findings.count()
+
+    def get_failing_checks(self, obj) -> int:
+        """Number of rules where at least one row failed."""
+        return sum(1 for f in obj.findings.all() if f.rows_failed > 0)
+
+    def get_passing_checks(self, obj) -> int:
+        """Number of rules where every row passed (rows_failed == 0)."""
+        return sum(1 for f in obj.findings.all() if f.rows_failed == 0)
+
+    def get_rule_type_scores(self, obj) -> dict:
+        """
+        Average pass rate per rule type across findings in this run.
+
+        Pass rate for a finding = 100 - failure_percentage.
+        Rounded to nearest integer.  null = that rule type was not checked.
+        """
+        ALL_RULE_TYPES = [
+            "null_check",
+            "type_check",
+            "range_check",
+            "uniqueness_check",
+        ]
+        rates: dict[str, list[float]] = {rt: [] for rt in ALL_RULE_TYPES}
+        for finding in obj.findings.all():
+            rt = finding.rule.rule_type
+            if rt in rates:
+                rates[rt].append(100.0 - finding.failure_percentage)
+
+        return {
+            rt: round(sum(r) / len(r)) if r else None
+            for rt, r in rates.items()
+        }
 
 
 class ReportDetailSerializer(serializers.ModelSerializer):
