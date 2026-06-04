@@ -38,10 +38,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r data-engineering/requirements.txt
-      - run: |
-          python -m py_compile data-engineering/pipeline/etl_pipeline.py
-          python -m py_compile data-engineering/pipeline/data_models.py
-          echo "Data engineering modules OK"
+      - run: pytest data-engineering/tests/ -v --tb=short
 
   test-frontend:
     runs-on: ubuntu-latest
