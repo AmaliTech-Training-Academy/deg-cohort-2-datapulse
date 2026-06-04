@@ -10,6 +10,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from datasets.models import Dataset
+
 from .tokens import decode_email_verification_token, password_reset_token_generator
 from .validators import validate_password_strength
 
@@ -133,6 +135,69 @@ class ForgotPasswordSerializer(serializers.Serializer):
     @property
     def user(self):
         return getattr(self, "_user", None)
+
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    """Read-only serializer for the admin user-management table."""
+
+    name = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    datasets_count = serializers.IntegerField(read_only=True)
+    last_active = serializers.DateTimeField(source="last_login", read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "name",
+            "email",
+            "role",
+            "datasets_count",
+            "status",
+            "last_active",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_name(self, obj: User) -> str:
+        full_name = obj.get_full_name().strip()
+        return full_name if full_name else obj.email
+
+    def get_status(self, obj: User) -> str:
+        return "active" if obj.is_active else "suspended"
+
+
+class AdminDatasetListSerializer(serializers.ModelSerializer):
+    """Read-only serializer for the admin datasets overview table."""
+
+    project = serializers.SerializerMethodField()
+    owner = serializers.SerializerMethodField()
+    reports_count = serializers.IntegerField(read_only=True)
+    # These three are annotated onto the queryset (not real model fields)
+    average_score = serializers.IntegerField(source="latest_score", read_only=True, allow_null=True)
+    status = serializers.CharField(source="latest_status", read_only=True, allow_null=True)
+    last_check = serializers.DateTimeField(read_only=True, allow_null=True)
+
+    class Meta:
+        model = Dataset
+        fields = [
+            "id",
+            "project",
+            "owner",
+            "reports_count",
+            "average_score",
+            "status",
+            "last_check",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_project(self, obj: Dataset) -> str:
+        return obj.file_title or obj.file_name
+
+    def get_owner(self, obj: Dataset) -> str:
+        full_name = obj.user.get_full_name().strip()
+        return full_name if full_name else obj.user.email
 
 
 class ResetPasswordSerializer(serializers.Serializer):
