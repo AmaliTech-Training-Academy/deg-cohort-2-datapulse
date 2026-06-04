@@ -104,14 +104,41 @@ aws ecr get-login-password --region eu-west-1 | \
 
 ---
 
-## Manual Deploy (if CI is not available)
+## Running on EC2
 
+> CI/CD handles deploys automatically on push to `dev`. SSH in only when needed.
+
+**SSH in**
 ```bash
+ssh -i datapulse-staging-key.pem ubuntu@<EC2_IP>
 cd ~/datapulse
-git pull origin dev
-ECR_REGISTRY=<your-registry> docker-compose -f docker-compose.prod.yml pull
-ECR_REGISTRY=<your-registry> docker-compose -f docker-compose.prod.yml up -d
-docker image prune -f
+```
+
+**Check running containers**
+```bash
+docker-compose -f docker-compose.prod.yml ps
+```
+
+**View logs**
+```bash
+docker-compose -f docker-compose.prod.yml logs -f
+# Single service: docker-compose -f docker-compose.prod.yml logs -f streamlit
+```
+
+**After stopping and restarting the instance (IP changes)**
+```bash
+# 1. Update ALLOWED_HOSTS in .env with the new IP
+nano .env  # ALLOWED_HOSTS=<NEW_IP>,127.0.0.1,localhost
+
+# 2. Start the stack
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+> Also update GitHub secret and variable `STAGING_EC2_HOST` with the new IP so CI deploys continue to work.
+
+**Run the ETL pipeline manually**
+```bash
+docker-compose -f docker-compose.prod.yml run --rm pipeline python pipeline/etl_pipeline.py
 ```
 
 ---

@@ -66,6 +66,21 @@ Full interactive docs: `http://localhost:8000/api/docs/`
 
 ---
 
+## End-to-End Test Flow
+
+To verify the full stack is working:
+
+1. Open `http://<EC2_IP>/` → register and log in via the Angular app
+2. Upload a dataset
+3. Define quality rules on that dataset
+4. Run a quality check
+5. Wait ~30 seconds for the ETL pipeline to sync
+6. Open `http://<EC2_IP>/analytics/` → scores and trends should reflect the check you just ran
+
+If all 6 steps work, the backend, pipeline, and dashboard are all wired correctly.
+
+---
+
 ## Deployment
 
 See [devops/deployment.md](devops/deployment.md) for the full deployment guide.
