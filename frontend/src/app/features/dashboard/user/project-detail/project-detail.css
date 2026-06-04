@@ -63,3 +63,148 @@
   .card { overflow-x: auto; }
   .data-table { min-width: 480px; margin: 0; width: 100%; }
 }
+
+/* ── Breadcrumb back-link ── */
+.breadcrumb__back {
+  color: var(--color-text-secondary); background: none; border: none;
+  font: inherit; font-size: 13px; padding: 0; cursor: pointer;
+}
+.breadcrumb__back:hover { color: var(--color-text-primary); }
+
+/* ── Dataset selector ── */
+.dataset-select {
+  padding: 7px 28px 7px 10px; font-size: 13px; font-weight: 500;
+  color: var(--color-text-primary); background: var(--color-surface);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.dataset-select:focus { outline: none; border-color: var(--color-border-focus); }
+
+/* ── Rules card ── */
+.rules-card__header { margin-bottom: 4px; }
+.rules-card__header .card__title { margin-bottom: 2px; }
+
+.rules-list { margin: 16px -24px 0; }
+
+.rule-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 24px; border-top: 1px solid var(--color-border);
+}
+.rule-row--disabled { opacity: 0.45; }
+
+/* Rule type icons */
+.rule-icon {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+}
+.rule-icon--not_null  { background: #fff3e0; color: #e65100; }
+.rule-icon--type_check { background: #e3f2fd; color: #1565c0; }
+.rule-icon--range     { background: #e8f5e9; color: #2e7d32; }
+.rule-icon--unique    { background: #fce4ec; color: #b71c1c; }
+.rule-icon--format    { background: var(--color-surface-raised); color: var(--color-text-muted); }
+
+.rule-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rule-name { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+.rule-desc { font-size: 12px; color: var(--color-text-secondary); }
+
+.rule-status { flex-shrink: 0; }
+.rule-badge--failing {
+  display: inline-block; padding: 3px 10px; border-radius: var(--radius-full);
+  font-size: 12px; font-weight: 600;
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+.rule-status--passing { font-size: 12px; color: var(--color-success); }
+
+/* Toggle switch */
+.toggle { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle__slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: var(--color-border); border-radius: 10px; transition: background 0.2s;
+}
+.toggle__slider::before {
+  content: ''; position: absolute; height: 14px; width: 14px;
+  left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s;
+}
+.toggle input:checked + .toggle__slider { background: var(--color-primary); }
+.toggle input:checked + .toggle__slider::before { transform: translateX(16px); }
+
+/* ── Rule action buttons (edit / delete) ── */
+.rule-actions { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
+
+.rule-action-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border: none; background: none;
+  border-radius: var(--radius-sm); cursor: pointer;
+  color: var(--color-text-muted); transition: background 0.15s, color 0.15s;
+}
+.rule-action-btn:hover { background: var(--color-surface-raised); color: var(--color-text-secondary); }
+.rule-action-btn--danger:hover {
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: var(--color-danger);
+}
+
+/* ── Inline edit row ── */
+.rule-row--editing {
+  background: var(--color-surface-raised);
+  align-items: flex-start;
+  padding-top: 16px; padding-bottom: 16px;
+  gap: 12px;
+}
+
+.rule-edit-fields { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.rule-edit-top { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.rule-edit-input {
+  flex: 1; min-width: 120px; padding: 6px 10px; font-size: 13px;
+  color: var(--color-input-text); background: var(--color-input-bg);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm); outline: none;
+  font-family: inherit;
+}
+.rule-edit-input--desc { font-size: 12px; color: var(--color-text-secondary); }
+.rule-edit-input:focus { border-color: var(--color-border-focus); }
+.rule-edit-input::placeholder { color: var(--color-text-muted); }
+
+.rule-edit-select {
+  padding: 6px 24px 6px 8px; font-size: 13px; color: var(--color-input-text);
+  background: var(--color-input-bg); border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm); cursor: pointer; outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center;
+  font-family: inherit;
+}
+.rule-edit-select:focus { border-color: var(--color-border-focus); }
+
+.rule-edit-btns { display: flex; gap: 6px; align-items: center; flex-shrink: 0; padding-top: 2px; }
+
+.btn--sm { padding: 5px 12px !important; font-size: 12px !important; }
+
+/* ── Add a rule form */
+.add-rule-form {
+  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+}
+.add-rule-form__group { display: flex; flex-direction: column; gap: 6px; }
+.add-rule-form__group--grow { flex: 1; min-width: 160px; }
+.add-rule-form__label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+.add-rule-form__select,
+.add-rule-form__input {
+  padding: 8px 12px; font-size: 13px; color: var(--color-text-primary);
+  background: var(--color-input-bg); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); outline: none;
+}
+.add-rule-form__select { appearance: none; padding-right: 28px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.add-rule-form__select:focus,
+.add-rule-form__input:focus { border-color: var(--color-border-focus); }
+.add-rule-form__input::placeholder { color: var(--color-text-muted); }
+.add-rule-form__btn { align-self: flex-end; }
