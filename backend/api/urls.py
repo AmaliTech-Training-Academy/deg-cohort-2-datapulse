@@ -18,6 +18,7 @@ Endpoint map:
 
   GET    /api/v1/datasets/<id>/rules/
   POST   /api/v1/datasets/<id>/rules/
+  POST   /api/v1/datasets/<id>/rules/batch/
   GET    /api/v1/rules/<id>/
   PATCH  /api/v1/rules/<id>/
   DELETE /api/v1/rules/<id>/

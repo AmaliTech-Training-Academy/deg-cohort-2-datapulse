@@ -2,6 +2,7 @@
 rules/views.py
 ────────────────────────────────────────────────────────────────────────────────
 RuleListCreateView    GET / POST  /api/v1/datasets/<dataset_id>/rules/
+RuleBatchCreateView   POST        /api/v1/datasets/<dataset_id>/rules/batch/
 RuleDetailView        GET / PATCH / DELETE  /api/v1/rules/<id>/
 
 Ownership is enforced at every level:
@@ -23,11 +24,15 @@ Per-rule items add:
     last_failing_rows   — rows_failed from the most recent finding for this rule
     last_passing_rows   — passing rows from the most recent finding
     average_score       — average pass rate across all findings for this rule
+
+RuleBatchCreateView POST accepts a JSON array of rule objects and creates all
+valid rules atomically.  Duplicate rules (same dataset + column + type) are
+reported in the 'skipped' list rather than aborting the whole batch.
 """
 
 import logging
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import status
@@ -288,6 +293,265 @@ class RuleListCreateView(APIView):
         logger.info("Rule created: %s on dataset %s", rule.id, dataset.id)
         return Response(
             ValidationRuleSerializer(rule).data, status=status.HTTP_201_CREATED
+        )
+
+
+class RuleBatchCreateView(APIView):
+    """
+    POST /api/v1/datasets/<dataset_id>/rules/batch/
+
+    Create multiple validation rules in a single request.
+
+    Accepts a JSON array of rule objects.  Each item is validated
+    independently.  Rules that fail validation return an error entry;
+    duplicate rules (same column + rule_type) are reported in 'skipped'
+    rather than aborting the whole batch.
+
+    Response shape:
+        {
+          "created":  [ ...ValidationRuleSerializer objects... ],
+          "skipped":  [ { "column_name", "rule_type", "reason" }, ... ],
+          "errors":   [ { "index", "column_name", "rule_type", "detail" }, ... ],
+          "summary":  { "total": N, "created": N, "skipped": N, "errors": N }
+        }
+
+    Returns 201 when at least one rule was created.
+    Returns 400 when the request body is not a non-empty list.
+    Returns 422 when every item failed validation or was a duplicate.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    _ALL_RULES_EXAMPLE = [
+        {
+            "column_name": "name",
+            "rule_type": "null_check",
+            "rule_config": {},
+        },
+        {
+            "column_name": "age",
+            "rule_type": "range_check",
+            "rule_config": {"min": 18, "max": 65},
+        },
+        {
+            "column_name": "id",
+            "rule_type": "uniqueness_check",
+            "rule_config": {},
+        },
+        {
+            "column_name": "salary",
+            "rule_type": "type_check",
+            "rule_config": {"expected_type": "float"},
+        },
+    ]
+
+    _NULL_AND_UNIQUE_EXAMPLE = [
+        {
+            "column_name": "email",
+            "rule_type": "null_check",
+            "rule_config": {},
+        },
+        {
+            "column_name": "employee_id",
+            "rule_type": "uniqueness_check",
+            "rule_config": {},
+        },
+    ]
+
+    @extend_schema(
+        request={
+            "application/json": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "column_name": {
+                            "type": "string",
+                            "description": "Column name — must exist in the dataset",
+                        },
+                        "rule_type": {
+                            "type": "string",
+                            "enum": [
+                                "null_check",
+                                "type_check",
+                                "range_check",
+                                "uniqueness_check",
+                            ],
+                        },
+                        "rule_config": {
+                            "type": "object",
+                            "description": (
+                                "Rule-type-specific config: "
+                                "{} for null_check / uniqueness_check, "
+                                '{"expected_type": "..."} for type_check, '
+                                '{"min": N, "max": N} for range_check'
+                            ),
+                        },
+                    },
+                    "required": ["column_name", "rule_type", "rule_config"],
+                },
+                "minItems": 1,
+            }
+        },
+        responses={
+            201: {
+                "type": "object",
+                "properties": {
+                    "created": {
+                        "type": "array",
+                        "description": "Rules that were successfully created",
+                    },
+                    "skipped": {
+                        "type": "array",
+                        "description": "Rules skipped because an identical rule already exists",
+                    },
+                    "errors": {
+                        "type": "array",
+                        "description": "Rules that failed validation",
+                    },
+                    "summary": {
+                        "type": "object",
+                        "description": "Count totals: total, created, skipped, errors",
+                    },
+                },
+            },
+            400: None,
+            422: None,
+        },
+        summary="Batch-create multiple validation rules",
+        description=(
+            "Create multiple validation rules for a dataset in a single request. "
+            "Each rule is validated independently. "
+            "Duplicate rules (same column + rule_type already exists) are reported "
+            "in 'skipped' — the rest of the batch still proceeds. "
+            "Returns 201 when at least one rule was created. "
+            "Returns 422 when every item in the batch failed or was a duplicate."
+        ),
+        examples=[
+            OpenApiExample(
+                name="All 4 Rule Types",
+                summary="Create one of each rule type in a single request",
+                description=(
+                    "Creates null_check on name, range_check on age (18–65), "
+                    "uniqueness_check on id, and type_check on salary (float). "
+                    "Ideal for setting up a complete validation profile at once."
+                ),
+                value=_ALL_RULES_EXAMPLE,
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Null + Uniqueness",
+                summary="Create two focused rules",
+                description=(
+                    "Creates a null_check on email and a uniqueness_check on "
+                    "employee_id. Useful when only specific columns need validation."
+                ),
+                value=_NULL_AND_UNIQUE_EXAMPLE,
+                request_only=True,
+            ),
+        ],
+    )
+    def post(self, request: Request, dataset_id: str) -> Response:
+        dataset = _get_dataset_for_user(dataset_id, request.user)
+
+        # ── Validate request body is a non-empty list ──────────────────────────
+        if not isinstance(request.data, list) or len(request.data) == 0:
+            return Response(
+                {
+                    "error": {
+                        "code": "INVALID_BODY",
+                        "message": "Request body must be a non-empty JSON array of rule objects.",
+                        "fields": {},
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created = []
+        skipped = []
+        errors = []
+
+        for index, item in enumerate(request.data):
+            column_name = item.get("column_name", "")
+            rule_type = item.get("rule_type", "")
+
+            # Inject dataset FK for serializer validation
+            data = {**item, "dataset": str(dataset.id)}
+            serializer = ValidationRuleSerializer(data=data)
+
+            if not serializer.is_valid():
+                errors.append(
+                    {
+                        "index": index,
+                        "column_name": column_name,
+                        "rule_type": rule_type,
+                        "detail": serializer.errors,
+                    }
+                )
+                continue
+
+            try:
+                # Use a savepoint so an IntegrityError on this item rolls back
+                # only this one save — not the entire request transaction.
+                with transaction.atomic():
+                    rule = serializer.save()
+                created.append(ValidationRuleSerializer(rule).data)
+                logger.info(
+                    "Batch rule created: %s on dataset %s (index=%d)",
+                    rule.id,
+                    dataset.id,
+                    index,
+                )
+            except IntegrityError:
+                skipped.append(
+                    {
+                        "index": index,
+                        "column_name": column_name,
+                        "rule_type": rule_type,
+                        "reason": (
+                            f"A {rule_type} rule already exists "
+                            f"for column '{column_name}'."
+                        ),
+                    }
+                )
+
+        summary = {
+            "total": len(request.data),
+            "created": len(created),
+            "skipped": len(skipped),
+            "errors": len(errors),
+        }
+
+        logger.info(
+            "Batch rule creation on dataset %s: %s",
+            dataset.id,
+            summary,
+        )
+
+        # 422 if nothing was created (all skipped or all errored)
+        if len(created) == 0:
+            return Response(
+                {
+                    "error": {
+                        "code": "BATCH_NOTHING_CREATED",
+                        "message": "No rules were created. Check 'skipped' and 'errors' for details.",
+                        "fields": {},
+                    },
+                    "skipped": skipped,
+                    "errors": errors,
+                    "summary": summary,
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        return Response(
+            {
+                "created": created,
+                "skipped": skipped,
+                "errors": errors,
+                "summary": summary,
+            },
+            status=status.HTTP_201_CREATED,
         )
 
 
