@@ -175,6 +175,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: push-to-ecr
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    environment:
+      name: staging
+      url: http://${{ vars.STAGING_EC2_HOST }}
     steps:
       - name: Deploy to staging
         uses: appleboy/ssh-action@v1
@@ -205,6 +208,7 @@ jobs:
         env:
           STAGING_HOST: ${{ secrets.STAGING_EC2_HOST }}
         run: |
+          # wait for containers to be ready
           sleep 20
           curl --fail --retry 5 --retry-delay 5 http://$STAGING_HOST/
           curl --fail --retry 5 --retry-delay 5 http://$STAGING_HOST/api/docs/
