@@ -11,19 +11,13 @@ import { authReducer } from './features/auth/store/auth.reducer';
 import * as authEffects from './features/auth/store/auth.effects';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { errorInterceptor } from './core/interceptors/error.interceptor';
-import { mockAuthInterceptor } from './core/interceptors/mock-auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(
-      withInterceptors([
-        ...(!environment.production ? [mockAuthInterceptor] : []),
-        authInterceptor,
-        errorInterceptor,
-      ]),
-    ),
+    // errorInterceptor first so authInterceptor handles the raw HttpErrorResponse (401 refresh logic)
+    provideHttpClient(withInterceptors([errorInterceptor, authInterceptor])),
     provideStore({ auth: authReducer }),
     provideEffects(authEffects),
     ...(environment.production ? [] : [provideStoreDevtools({ maxAge: 25 })]),

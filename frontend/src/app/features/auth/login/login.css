@@ -37,51 +37,19 @@
   font-weight: 500;
 }
 
-.dev-shortcuts {
+.resend-btn {
+  display: block;
   margin-top: 8px;
-  padding: 14px 16px;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: color-mix(in srgb, var(--color-warning) 6%, transparent);
-}
-
-.dev-shortcuts__label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  margin: 0 0 10px;
-}
-
-.dev-shortcuts__buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.dev-btn {
-  flex: 1;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--color-danger);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  border: 1px solid transparent;
-  transition: opacity 0.15s;
+  text-decoration: underline;
 }
 
-.dev-btn:hover {
-  opacity: 0.85;
-}
-
-.dev-btn--admin {
-  background-color: color-mix(in srgb, var(--color-primary) 14%, transparent);
-  color: var(--color-primary);
-  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
-}
-
-.dev-btn--user {
-  background-color: color-mix(in srgb, var(--color-success) 14%, transparent);
-  color: var(--color-success);
-  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+.resend-btn:hover {
+  opacity: 0.8;
 }

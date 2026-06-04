@@ -27,7 +27,7 @@
       <div class="topbar__user">
         <div class="topbar__avatar">{{ initials() }}</div>
         <div class="topbar__user-info">
-          <span class="topbar__user-name">{{ user()?.name }}</span>
+          <span class="topbar__user-name">{{ user()?.first_name }} {{ user()?.last_name }}</span>
           <span class="topbar__user-role">{{ roleLabel() }}</span>
         </div>
         <button class="topbar__logout" (click)="logout()" type="button" aria-label="Log out">
