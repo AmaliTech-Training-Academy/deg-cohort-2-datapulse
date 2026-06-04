@@ -99,6 +99,7 @@ export interface SuggestedRule {
   description: string;
   column: string;
   enabled: boolean;
+  params?: string;
 }
 
 export interface DetectedColumn {

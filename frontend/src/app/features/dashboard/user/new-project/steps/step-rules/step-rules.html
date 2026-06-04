@@ -8,29 +8,17 @@
 
       <div class="rules-header">
         <span class="rules-count">{{ localRules().length }} checks generated from your dataset</span>
-        <button class="btn-add" type="button">+ Add rule</button>
+        <button class="btn-add" type="button" (click)="onAddRule()">+ Add rule</button>
       </div>
 
       <div class="rules-list">
         @for (rule of localRules(); track rule.id) {
-          <div class="rule-item" [class.rule-item--disabled]="!rule.enabled">
-            <div class="rule-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path [attr.d]="ruleTypeIcon(rule.type)" />
-              </svg>
-            </div>
-            <div class="rule-body">
-              <div class="rule-name">
-                {{ rule.name }}
-                <span class="rule-column">{{ rule.column }}</span>
-              </div>
-              <p class="rule-desc">{{ rule.description }}</p>
-            </div>
-            <label class="toggle" [attr.aria-label]="'Toggle ' + rule.name">
-              <input type="checkbox" [checked]="rule.enabled" (change)="toggleRule(rule.id)" />
-              <span class="toggle__track"></span>
-            </label>
-          </div>
+          <app-rule-item
+            [rule]="rule"
+            (toggled)="toggleRule($event)"
+            (editClicked)="onEditRule($event)"
+            (deleteClicked)="onDeleteRule($event)"
+          />
         }
       </div>
     </div>
@@ -65,3 +53,12 @@
     </button>
   </div>
 </div>
+
+<app-add-rule-modal
+  [isOpen]="isModalOpen()"
+  [columns]="columns()"
+  [existingRules]="localRules()"
+  [editingRule]="editingRule()"
+  (saved)="onRuleSaved($event)"
+  (cancelled)="onModalCancelled()"
+/>
