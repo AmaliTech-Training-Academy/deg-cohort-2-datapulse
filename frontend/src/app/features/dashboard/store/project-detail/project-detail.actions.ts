@@ -14,3 +14,16 @@ export const loadProjectDetailFailure = createAction(
   props<{ error: string }>(),
 );
 export const clearProjectDetail = createAction('[Project Detail] Clear');
+
+export const uploadVersion = createAction(
+  '[Project Detail] Upload Version',
+  props<{ datasetId: string; file: File }>(),
+);
+export const uploadVersionSuccess = createAction(
+  '[Project Detail] Upload Version Success',
+  props<{ datasetId: string }>(),
+);
+export const uploadVersionFailure = createAction(
+  '[Project Detail] Upload Version Failure',
+  props<{ error: string }>(),
+);

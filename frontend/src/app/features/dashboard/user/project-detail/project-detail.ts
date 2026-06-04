@@ -17,6 +17,8 @@ import * as ValidationRulesActions from '../../store/validation-rules/validation
 import {
   selectProjectDetailDataset,
   selectProjectDetailLoading,
+  selectUploadVersionError,
+  selectUploadVersionLoading,
 } from '../../store/project-detail/project-detail.selectors';
 import {
   selectAllReports,
@@ -175,6 +177,17 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     }));
   });
 
+  // Upload version store signals
+  protected readonly uploadVersionLoading = this.store.selectSignal(selectUploadVersionLoading);
+  protected readonly uploadVersionError = this.store.selectSignal(selectUploadVersionError);
+
+  // Upload version modal state
+  protected readonly showUploadModal = signal(false);
+  protected readonly uploadFileName = signal<string | null>(null);
+  protected readonly uploadIsDragOver = signal(false);
+  protected readonly uploadParseError = signal<string | null>(null);
+  private pendingVersionFile: File | null = null;
+
   // Manage rules UI state
   protected readonly showManageRules = signal(false);
   protected readonly selectedDatasetId = signal<string>('');
@@ -226,6 +239,15 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.actions$
       .pipe(ofType(ValidationRulesActions.runChecksOnDatasetSuccess), takeUntilDestroyed())
       .subscribe(() => this.showManageRules.set(false));
+
+    // Close upload modal — the effect handles dispatching the three reload actions
+    this.actions$
+      .pipe(ofType(ProjectDetailActions.uploadVersionSuccess), takeUntilDestroyed())
+      .subscribe(() => {
+        this.showUploadModal.set(false);
+        this.uploadFileName.set(null);
+        this.pendingVersionFile = null;
+      });
   }
 
   ngOnInit(): void {
@@ -244,6 +266,59 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
     this.store.dispatch(ReportsActions.clearReports());
     this.store.dispatch(TrendsActions.clearTrends());
     this.store.dispatch(ValidationRulesActions.clearValidationRules());
+  }
+
+  // ── Upload version modal ─────────────────────────────────────────────────────
+
+  protected openUploadModal(): void {
+    this.uploadFileName.set(null);
+    this.uploadParseError.set(null);
+    this.pendingVersionFile = null;
+    this.showUploadModal.set(true);
+  }
+
+  protected closeUploadModal(): void {
+    this.showUploadModal.set(false);
+  }
+
+  protected onUploadDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.uploadIsDragOver.set(true);
+  }
+
+  protected onUploadDragLeave(): void {
+    this.uploadIsDragOver.set(false);
+  }
+
+  protected onUploadDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.uploadIsDragOver.set(false);
+    const file = event.dataTransfer?.files[0];
+    if (file) this.setVersionFile(file);
+  }
+
+  protected onUploadFileSelect(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (file) this.setVersionFile(file);
+  }
+
+  private setVersionFile(file: File): void {
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith('.csv') && !lower.endsWith('.json')) {
+      this.uploadParseError.set('Only .csv and .json files are supported.');
+      return;
+    }
+    this.uploadParseError.set(null);
+    this.pendingVersionFile = file;
+    this.uploadFileName.set(file.name);
+  }
+
+  protected submitUploadVersion(): void {
+    const datasetId = this.datasetFromStore()?.id;
+    if (!this.pendingVersionFile || !datasetId) return;
+    this.store.dispatch(
+      ProjectDetailActions.uploadVersion({ datasetId, file: this.pendingVersionFile }),
+    );
   }
 
   protected openManageRules(): void {

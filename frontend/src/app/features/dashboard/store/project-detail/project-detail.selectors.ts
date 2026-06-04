@@ -15,3 +15,11 @@ export const selectProjectDetailError = createSelector(
   selectProjectDetailState,
   (state) => state.error,
 );
+export const selectUploadVersionLoading = createSelector(
+  selectProjectDetailState,
+  (state) => state.uploadVersionLoading,
+);
+export const selectUploadVersionError = createSelector(
+  selectProjectDetailState,
+  (state) => state.uploadVersionError,
+);

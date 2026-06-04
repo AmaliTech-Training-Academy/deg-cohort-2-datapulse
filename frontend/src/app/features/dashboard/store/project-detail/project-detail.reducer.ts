@@ -6,12 +6,16 @@ export interface ProjectDetailState {
   dataset: ApiDataset | null;
   loading: boolean;
   error: string | null;
+  uploadVersionLoading: boolean;
+  uploadVersionError: string | null;
 }
 
 const initialState: ProjectDetailState = {
   dataset: null,
   loading: false,
   error: null,
+  uploadVersionLoading: false,
+  uploadVersionError: null,
 };
 
 export const projectDetailReducer = createReducer(
@@ -32,4 +36,19 @@ export const projectDetailReducer = createReducer(
     error,
   })),
   on(ProjectDetailActions.clearProjectDetail, () => initialState),
+
+  on(ProjectDetailActions.uploadVersion, (state) => ({
+    ...state,
+    uploadVersionLoading: true,
+    uploadVersionError: null,
+  })),
+  on(ProjectDetailActions.uploadVersionSuccess, (state) => ({
+    ...state,
+    uploadVersionLoading: false,
+  })),
+  on(ProjectDetailActions.uploadVersionFailure, (state, { error }) => ({
+    ...state,
+    uploadVersionLoading: false,
+    uploadVersionError: error,
+  })),
 );
