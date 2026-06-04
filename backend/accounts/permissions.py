@@ -31,8 +31,4 @@ class IsAdminUser(BasePermission):
     message = "Admin access required."
 
     def has_permission(self, request: Request, view: APIView) -> bool:
-        # TODO: implement this
-        # return bool(request.user and request.user.is_authenticated and request.user.is_admin)
-        raise NotImplementedError(
-            "IsAdminUser.has_permission() is not implemented yet."
-        )
+        return bool(request.user and request.user.is_authenticated and request.user.is_admin)
