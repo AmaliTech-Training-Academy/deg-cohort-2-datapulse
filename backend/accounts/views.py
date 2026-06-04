@@ -8,10 +8,9 @@ all request/response bodies correctly.
 import logging
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, F, OuterRef, Subquery
+from django.db.models import Count
 from drf_spectacular.utils import (
     OpenApiExample,
-    OpenApiParameter,
     OpenApiResponse,
     extend_schema,
 )
@@ -30,18 +29,15 @@ from accounts.throttles import (
     ResendVerificationThrottle,
 )
 from accounts.serializers import (
-    AdminDatasetListSerializer,
-    AdminUserListSerializer,
     CustomTokenObtainPairSerializer,
     ForgotPasswordSerializer,
     RegisterSerializer,
     ResendVerificationSerializer,
     ResetPasswordSerializer,
+    UserListSerializer,
     UserProfileSerializer,
     VerifyEmailSerializer,
 )
-from datasets.models import Dataset
-from reports.models import QualityReport
 from .tokens import make_email_verification_token, password_reset_token_generator
 
 User = get_user_model()
@@ -275,141 +271,35 @@ class ResetPasswordView(APIView):
         )
 
 
-_ADMIN_TAG = ["Admin"]
-
-_VALID_ORDERINGS = {
-    "created_at",
-    "-created_at",
-    "last_login",
-    "-last_login",
-    "datasets_count",
-    "-datasets_count",
-}
-
-
-class AdminUserListView(generics.ListAPIView):
+class UserListView(generics.ListAPIView):
     """
-    GET /api/v1/admin/users/
+    GET /api/v1/auth/users/
 
-    Returns a paginated list of all users. Admin-only.
-
-    Query params:
-      role        — filter by "admin" or "user"
-      status      — filter by "active" or "suspended"
-      ordering    — one of: created_at, -created_at (default), last_login,
-                    -last_login, datasets_count, -datasets_count
+    Admin-only. Returns all registered users with dataset count and login info.
+    Regular users receive 403.
     """
 
     permission_classes = [IsAuthenticated, IsAdminUser]
-    serializer_class = AdminUserListSerializer
+    serializer_class = UserListSerializer
 
     @extend_schema(
-        tags=_ADMIN_TAG,
-        summary="Admin — list all users",
-        parameters=[
-            OpenApiParameter("role", str, description="Filter by role: admin | user"),
-            OpenApiParameter(
-                "status", str, description="Filter by status: active | suspended"
-            ),
-            OpenApiParameter(
-                "ordering",
-                str,
-                description=(
-                    "Sort field: created_at, -created_at (default), "
-                    "last_login, -last_login, datasets_count, -datasets_count"
-                ),
-            ),
-        ],
-        responses={200: AdminUserListSerializer(many=True)},
+        tags=["Authentication"],
+        summary="List all users (admin only)",
+        description=(
+            "Returns a paginated list of all registered users. "
+            "Includes dataset count and last login per user. "
+            "Only accessible to users with role='admin'."
+        ),
+        responses={
+            200: UserListSerializer(many=True),
+            403: OpenApiResponse(description="Admin access required"),
+        },
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = User.objects.annotate(datasets_count=Count("dataset")).order_by(
-            "-created_at"
-        )
-
-        role = self.request.query_params.get("role")
-        if role in (User.Role.USER, User.Role.ADMIN):
-            qs = qs.filter(role=role)
-
-        status_param = self.request.query_params.get("status")
-        if status_param == "active":
-            qs = qs.filter(is_active=True)
-        elif status_param == "suspended":
-            qs = qs.filter(is_active=False)
-
-        ordering = self.request.query_params.get("ordering")
-        if ordering in _VALID_ORDERINGS:
-            qs = qs.order_by(ordering)
-
-        return qs
-
-
-_DATASET_ORDERING_MAP = {
-    "created_at": "created_at",
-    "-created_at": "-created_at",
-    # NULLs (datasets with no checks yet) always sink to the bottom
-    "last_check": F("last_check").asc(nulls_last=True),
-    "-last_check": F("last_check").desc(nulls_last=True),
-    "reports_count": "reports_count",
-    "-reports_count": "-reports_count",
-}
-
-
-class AdminDatasetListView(generics.ListAPIView):
-    """
-    GET /api/v1/admin/datasets/
-
-    Returns a paginated list of all datasets with their latest report info.
-    Admin-only.
-
-    Query params:
-      ordering  — one of: created_at, -created_at (default), last_check,
-                  -last_check, reports_count, -reports_count
-    """
-
-    permission_classes = [IsAuthenticated, IsAdminUser]
-    serializer_class = AdminDatasetListSerializer
-
-    @extend_schema(
-        tags=_ADMIN_TAG,
-        summary="Admin — list all datasets with latest report info",
-        parameters=[
-            OpenApiParameter(
-                "ordering",
-                str,
-                description=(
-                    "Sort field: created_at, -created_at (default), "
-                    "last_check, -last_check, reports_count, -reports_count"
-                ),
-            ),
-        ],
-        responses={200: AdminDatasetListSerializer(many=True)},
-    )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
-    def get_queryset(self):
-        # Subquery: pick fields from the single most-recent report for each dataset
-        latest_report = QualityReport.objects.filter(dataset=OuterRef("pk")).order_by(
-            "-generated_at"
-        )
-
-        qs = (
-            Dataset.objects.select_related("user")
-            .annotate(
-                reports_count=Count("reports"),
-                latest_score=Subquery(latest_report.values("overall_score")[:1]),
-                latest_status=Subquery(latest_report.values("status")[:1]),
-                last_check=Subquery(latest_report.values("generated_at")[:1]),
-            )
+        return (
+            User.objects.annotate(datasets_count=Count("datasets"))
             .order_by("-created_at")
         )
-
-        ordering = self.request.query_params.get("ordering")
-        if ordering in _DATASET_ORDERING_MAP:
-            qs = qs.order_by(_DATASET_ORDERING_MAP[ordering])
-
-        return qs

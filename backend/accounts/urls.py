@@ -7,6 +7,7 @@ POST   /api/v1/auth/register/
 POST   /api/v1/auth/login/
 POST   /api/v1/auth/refresh/
 GET    /api/v1/auth/me/
+GET    /api/v1/auth/users/           (admin only)
 POST   /api/v1/auth/verify-email/
 POST   /api/v1/auth/resend-verification/
 POST   /api/v1/auth/forgot-password/
@@ -23,6 +24,7 @@ from .views import (
     RegisterView,
     ResendVerificationView,
     ResetPasswordView,
+    UserListView,
     VerifyEmailView,
 )
 
@@ -31,6 +33,7 @@ urlpatterns = [
     path("login/", LoginView.as_view(), name="auth-login"),
     path("refresh/", RefreshTokenView.as_view(), name="auth-refresh"),
     path("me/", MeView.as_view(), name="auth-me"),
+    path("users/", UserListView.as_view(), name="auth-user-list"),
     path("verify-email/", VerifyEmailView.as_view(), name="auth-verify-email"),
     path(
         "resend-verification/",
