@@ -15,10 +15,7 @@ interface SettingsNav {
 })
 export class SettingsComponent {
   protected readonly navItems: SettingsNav[] = [
-    { label: 'General', route: 'general' },
-    { label: 'Notifications', route: 'notifications' },
-    { label: 'Quality thresholds', route: 'quality-thresholds' },
-    { label: 'Integrations', route: 'integrations' },
+    { label: 'Profile', route: 'profile' },
     { label: 'Danger zone', route: 'danger-zone' },
   ];
 }

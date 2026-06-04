@@ -110,33 +110,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/settings/settings').then((m) => m.SettingsComponent),
         children: [
-          { path: '', redirectTo: 'quality-thresholds', pathMatch: 'full' },
+          { path: '', redirectTo: 'profile', pathMatch: 'full' },
           {
-            path: 'quality-thresholds',
+            path: 'profile',
             loadComponent: () =>
-              import('./features/dashboard/settings/panels/quality-thresholds/quality-thresholds').then(
-                (m) => m.QualityThresholdsComponent,
-              ),
-          },
-          {
-            path: 'general',
-            loadComponent: () =>
-              import('./features/dashboard/settings/panels/general/general').then(
-                (m) => m.GeneralSettingsComponent,
-              ),
-          },
-          {
-            path: 'notifications',
-            loadComponent: () =>
-              import('./features/dashboard/settings/panels/notifications/notifications').then(
-                (m) => m.NotificationsSettingsComponent,
-              ),
-          },
-          {
-            path: 'integrations',
-            loadComponent: () =>
-              import('./features/dashboard/settings/panels/integrations/integrations').then(
-                (m) => m.IntegrationsSettingsComponent,
+              import('./features/dashboard/settings/panels/profile/profile').then(
+                (m) => m.ProfileSettingsComponent,
               ),
           },
           {
@@ -149,5 +128,10 @@ export const routes: Routes = [
         ],
       },
     ],
+  },
+  {
+    path: '**',
+    loadComponent: () =>
+      import('./features/not-found/not-found').then((m) => m.NotFoundComponent),
   },
 ];
