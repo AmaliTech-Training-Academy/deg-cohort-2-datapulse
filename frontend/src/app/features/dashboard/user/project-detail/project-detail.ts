@@ -1,7 +1,9 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Store } from '@ngrx/store';
 import { MockDataService } from '../../../../shared/services/mock-data.service';
 import { Project } from '../../../../shared/models/dashboard.models';
+import { selectUserRole } from '../../../../features/auth/store/auth.selectors';
 import { StatCardComponent } from '../../../../shared/ui/stat-card/stat-card';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge';
 import { TrendChartComponent } from '../../../../shared/ui/trend-chart/trend-chart';
@@ -16,6 +18,11 @@ import { TrendChartComponent } from '../../../../shared/ui/trend-chart/trend-cha
 export class ProjectDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly dataService = inject(MockDataService);
+  private readonly store = inject(Store);
+
+  protected readonly role = this.store.selectSignal(selectUserRole);
+  protected readonly projectsLink = () =>
+    this.role() === 'admin' ? '/dashboard/all-projects' : '/dashboard/projects';
 
   protected readonly project = signal<Project | undefined>(undefined);
   protected readonly loading = signal(true);

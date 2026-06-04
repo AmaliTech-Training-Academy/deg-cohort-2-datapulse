@@ -3,7 +3,7 @@
 } @else if (project(); as p) {
   <div class="page">
     <nav class="breadcrumb">
-      <a routerLink="/dashboard/projects">Projects</a>
+      <a [routerLink]="projectsLink()">Projects</a>
       <span class="breadcrumb__sep">›</span>
       <span>{{ p.name }}</span>
     </nav>
