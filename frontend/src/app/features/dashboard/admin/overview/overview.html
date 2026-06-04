@@ -21,30 +21,38 @@
     </div>
 
     <div class="content-grid">
-      <section class="card alerts-card">
+      <section class="card projects-card">
         <div class="card__header">
-          <h2 class="card__title">Active alerts</h2>
-          <span class="alert-count">{{ activeAlerts().length }}</span>
-          <p class="card__subtitle" style="flex:1; margin-left: 8px;">{{ activeAlerts().length }} issues across the platform</p>
-          <a routerLink="/dashboard/alerts" class="card__link">View all</a>
+          <h2 class="card__title">Recent projects</h2>
+          <p class="card__subtitle" style="flex:1; margin-left: 8px;">Latest activity across the org</p>
+          <a routerLink="/dashboard/all-projects" class="card__link">View all</a>
         </div>
-        <div class="alert-list">
-          @for (alert of activeAlerts(); track alert.id) {
-            <div class="alert-row">
-              <div class="alert-row__icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                  [attr.stroke]="severityColor(alert.severity)"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path [attr.d]="severityIcon(alert.severity)" />
-                </svg>
-              </div>
-              <div class="alert-row__body">
-                <p class="alert-row__title">{{ alert.title }}</p>
-                <p class="alert-row__desc">{{ alert.description }}</p>
-              </div>
-            </div>
-          }
-        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>PROJECT</th>
+              <th>OWNER</th>
+              <th>SCORE</th>
+              <th>STATUS</th>
+              <th>LAST RUN</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (project of recentProjects(); track project.id) {
+              <tr>
+                <td class="project-name">{{ project.name }}</td>
+                <td class="td-muted">{{ project.ownerName }}</td>
+                <td>
+                  <span [class]="'score ' + scoreClass(project.avgScore)">{{ project.avgScore }}</span>
+                </td>
+                <td>
+                  <app-badge [label]="statusLabel(project.status)" [variant]="statusVariant(project.status)" />
+                </td>
+                <td class="td-muted">{{ relativeTime(project.lastRunAt) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </section>
 
       <section class="card users-card">
@@ -89,23 +97,5 @@
         </table>
       </section>
     </div>
-
-    <section class="card health-card">
-      <h2 class="card__title" style="margin-bottom: 4px;">Platform health</h2>
-      <p class="card__subtitle" style="margin-bottom: 20px;">Infrastructure &amp; processing metrics for the last 24 hours</p>
-      <div class="health-bars">
-        <app-progress-bar label="Storage used" [value]="s.storageUsedPercent"
-          [color]="'var(--color-primary)'" />
-        <p class="health-detail">{{ s.storageUsedTB }} TB of {{ s.storageTotalTB }} TB</p>
-
-        <app-progress-bar label="Rules run today" [value]="s.rulesRunPercent"
-          [color]="'var(--color-success)'" />
-        <p class="health-detail">{{ s.rulesRunToday.toLocaleString() }} of ~{{ s.rulesTotalToday.toLocaleString() }}</p>
-
-        <app-progress-bar label="Error rate" [value]="s.errorRate"
-          [color]="'var(--color-danger)'" />
-        <p class="health-detail">{{ s.errorRate }}% of checks failed</p>
-      </div>
-    </section>
   }
 </div>
