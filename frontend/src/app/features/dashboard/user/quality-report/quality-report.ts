@@ -1,8 +1,28 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { MockDataService } from '../../../../shared/services/mock-data.service';
-import { QualityReport } from '../../../../shared/models/dashboard.models';
+import { Store } from '@ngrx/store';
+import { QualityReport, FindingCheck } from '../../../../shared/models/dashboard.models';
 import { ScoreRingComponent } from '../../../../shared/ui/score-ring/score-ring';
+import * as ReportDetailActions from '../../store/report-detail/report-detail.actions';
+import {
+  selectReportDetail,
+  selectReportDetailLoading,
+} from '../../store/report-detail/report-detail.selectors';
+
+function formatRuleType(ruleType: string): string {
+  switch (ruleType) {
+    case 'null_check':
+      return 'Null check';
+    case 'type_check':
+      return 'Type check';
+    case 'range_check':
+      return 'Range check';
+    case 'uniqueness_check':
+      return 'Uniqueness check';
+    default:
+      return ruleType.replace(/_/g, ' ');
+  }
+}
 
 @Component({
   selector: 'app-quality-report',
@@ -11,20 +31,59 @@ import { ScoreRingComponent } from '../../../../shared/ui/score-ring/score-ring'
   templateUrl: './quality-report.html',
   styleUrl: './quality-report.css',
 })
-export class QualityReportComponent implements OnInit {
+export class QualityReportComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
-  private readonly dataService = inject(MockDataService);
+  private readonly store = inject(Store);
 
-  protected readonly report = signal<QualityReport | undefined>(undefined);
-  protected readonly loading = signal(true);
+  private projectId = '';
+
+  private readonly reportDetailData = this.store.selectSignal(selectReportDetail);
+  protected readonly loading = this.store.selectSignal(selectReportDetailLoading);
+
+  // Map ReportDetail from the store to the QualityReport shape the template expects
+  protected readonly report = computed((): QualityReport | undefined => {
+    const detail = this.reportDetailData();
+    if (!detail) return undefined;
+
+    const findings: FindingCheck[] = detail.findings.map((f) => ({
+      id: f.id,
+      name: `${formatRuleType(f.ruleType)} on ${f.columnName}`,
+      // Map 'uniqueness_check' → 'uniqueness' to match existing icon switch case
+      type: f.ruleType === 'uniqueness_check' ? 'uniqueness' : f.ruleType,
+      description:
+        f.rowsFailed > 0
+          ? `${f.rowsFailed.toLocaleString()} of ${f.rowsChecked.toLocaleString()} rows failed (${f.failurePercentage.toFixed(1)}%)`
+          : `All ${f.rowsChecked.toLocaleString()} rows passed`,
+      status: f.rowsFailed > 0 ? ('failed' as const) : ('passed' as const),
+      failingRows: f.rowsFailed > 0 ? f.rowsFailed : undefined,
+    }));
+
+    return {
+      datasetId: detail.datasetId,
+      datasetName: detail.datasetFileTitle || detail.datasetFileName,
+      projectId: this.projectId,
+      projectName: detail.datasetFileTitle || detail.datasetFileName,
+      version: `v${detail.datasetFileVersion}`,
+      overallScore: detail.overallScore ?? 0,
+      categoryScores: {
+        nullChecks: detail.categoryScores.nullChecks ?? 0,
+        typeChecks: detail.categoryScores.typeChecks ?? 0,
+        rangeChecks: detail.categoryScores.rangeChecks ?? 0,
+        uniqueness: detail.categoryScores.uniqueness ?? 0,
+      },
+      findings,
+    };
+  });
 
   ngOnInit(): void {
-    const datasetId = this.route.snapshot.paramMap.get('datasetId') ?? '';
-    const projectId = this.route.snapshot.paramMap.get('id') ?? '';
-    this.dataService.getQualityReport(datasetId).subscribe((r) => {
-      this.report.set(r ?? this.fallbackReport(projectId, datasetId));
-      this.loading.set(false);
-    });
+    this.projectId = this.route.snapshot.paramMap.get('id') ?? '';
+    const reportId = this.route.snapshot.paramMap.get('reportId') ?? '';
+    this.store.dispatch(ReportDetailActions.clearReportDetail());
+    this.store.dispatch(ReportDetailActions.loadReportDetail({ reportId }));
+  }
+
+  ngOnDestroy(): void {
+    this.store.dispatch(ReportDetailActions.clearReportDetail());
   }
 
   protected findingIcon(status: string, type: string): string {
@@ -41,18 +100,5 @@ export class QualityReportComponent implements OnInit {
 
   protected findingIconColor(status: string): string {
     return status === 'passed' ? 'var(--color-success)' : 'var(--color-warning)';
-  }
-
-  private fallbackReport(projectId: string, datasetId: string): QualityReport {
-    return {
-      datasetId,
-      datasetName: datasetId,
-      projectId,
-      projectName: 'Project',
-      version: 'v1',
-      overallScore: 0,
-      categoryScores: { nullChecks: 0, typeChecks: 0, rangeChecks: 0, uniqueness: 0 },
-      findings: [],
-    };
   }
 }
