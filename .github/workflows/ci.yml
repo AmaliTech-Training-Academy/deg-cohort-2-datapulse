@@ -55,6 +55,7 @@ jobs:
           python-version: "3.11"
       - run: pip install -r data-engineering/requirements.txt pytest
       - run: psql $TARGET_DB_URL -f data-engineering/sql/analytics_schema.sql
+      - run: psql $TARGET_DB_URL -f data-engineering/tests/fixtures/test_data.sql
       - run: pytest data-engineering/tests/ -v --tb=short
 
   test-frontend:
