@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MockDataService } from '../../../../shared/services/mock-data.service';
 import { Project, ProjectStatus } from '../../../../shared/models/dashboard.models';
 import { StatCardComponent } from '../../../../shared/ui/stat-card/stat-card';
@@ -16,6 +17,7 @@ type FilterTab = 'all' | ProjectStatus;
 })
 export class AllProjectsComponent implements OnInit {
   private readonly dataService = inject(MockDataService);
+  private readonly router = inject(Router);
 
   protected readonly allProjects = signal<Project[]>([]);
   protected readonly searchQuery = signal('');
@@ -81,5 +83,9 @@ export class AllProjectsComponent implements OnInit {
 
   protected onSearch(event: Event): void {
     this.searchQuery.set((event.target as HTMLInputElement).value);
+  }
+
+  protected goToProject(id: string): void {
+    this.router.navigate(['/dashboard/projects', id]);
   }
 }
