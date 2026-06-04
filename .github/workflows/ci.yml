@@ -32,12 +32,29 @@ jobs:
 
   test-data-engineering:
     runs-on: ubuntu-latest
+    services:
+      analytics-db:
+        image: postgres:15
+        env:
+          POSTGRES_DB: analytics_test
+          POSTGRES_USER: analytics
+          POSTGRES_PASSWORD: analytics_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TARGET_DB_URL: postgresql://analytics:analytics_pass@localhost:5432/analytics_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: pip install -r data-engineering/requirements.txt pytest
+      - run: psql $TARGET_DB_URL -f data-engineering/sql/analytics_schema.sql
       - run: pytest data-engineering/tests/ -v --tb=short
 
   test-frontend:
