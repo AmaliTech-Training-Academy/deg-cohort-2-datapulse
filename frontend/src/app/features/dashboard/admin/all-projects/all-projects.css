@@ -146,3 +146,13 @@
 .empty-row { text-align: center; color: var(--color-text-muted); padding: 40px; }
 
 @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+@media (max-width: 767px) {
+  .page__header { flex-direction: column; align-items: flex-start; }
+  .table-toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .filter-tabs { flex-wrap: wrap; }
+  .search-box { width: 100%; }
+  .search-input { width: 100%; }
+  .table-card { overflow-x: auto; }
+  .data-table { min-width: 520px; }
+}

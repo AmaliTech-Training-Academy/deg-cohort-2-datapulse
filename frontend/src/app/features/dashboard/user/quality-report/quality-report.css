@@ -58,3 +58,8 @@
 .finding-pill--pass { background: color-mix(in srgb, var(--color-success) 14%, transparent); color: var(--color-success); }
 
 @media (max-width: 900px) { .report-grid { grid-template-columns: 1fr; } }
+
+@media (max-width: 767px) {
+  .page__header { flex-direction: column; align-items: flex-start; }
+  .header-actions { flex-wrap: wrap; }
+}
