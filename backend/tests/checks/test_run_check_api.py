@@ -148,8 +148,9 @@ class TestRunCheck:
         ):
             assert field in check_response
 
-    def test_status_is_completed(self, check_response):
-        assert check_response["status"] == "completed"
+    def test_status_reflects_quality_band(self, check_response):
+        # score=17 on the test CSV — well below 70 → failing
+        assert check_response["status"] == "failing"
 
     def test_score_matches_worked_example(self, check_response):
         # test_data.csv: 6 rows, 5 failed → score = 17

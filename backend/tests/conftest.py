@@ -17,6 +17,29 @@ from django.contrib.auth import get_user_model  # noqa: E402
 from rest_framework.test import APIClient  # noqa: E402
 from rest_framework_simplejwt.tokens import RefreshToken  # noqa: E402
 
+
+@pytest.fixture(autouse=True)
+def disable_auto_check_thread(monkeypatch):
+    """
+    Replace the background-thread dispatch on DatasetFileUpdateView with a
+    no-op for every test.
+
+    SQLite (used by the test suite) does not support concurrent writes, so
+    running the validation engine in a background thread causes
+    'database table is locked' errors.  Tests that need to assert on the
+    auto-check result should use the sync_auto_check fixture defined in
+    tests/datasets/test_auto_check_on_file_replace.py, which patches the
+    method to run synchronously instead.
+    """
+    from datasets.views import DatasetFileUpdateView
+
+    monkeypatch.setattr(
+        DatasetFileUpdateView,
+        "_dispatch_auto_check",
+        lambda self, dataset_id, report_id: None,
+    )
+
+
 User = get_user_model()
 
 UPLOAD_URL = "/api/v1/datasets/upload/"

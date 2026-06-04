@@ -174,8 +174,12 @@ class AdminDatasetListSerializer(serializers.ModelSerializer):
     owner = serializers.SerializerMethodField()
     reports_count = serializers.IntegerField(read_only=True)
     # These three are annotated onto the queryset (not real model fields)
-    average_score = serializers.IntegerField(source="latest_score", read_only=True, allow_null=True)
-    status = serializers.CharField(source="latest_status", read_only=True, allow_null=True)
+    average_score = serializers.IntegerField(
+        source="latest_score", read_only=True, allow_null=True
+    )
+    status = serializers.CharField(
+        source="latest_status", read_only=True, allow_null=True
+    )
     last_check = serializers.DateTimeField(read_only=True, allow_null=True)
 
     class Meta:

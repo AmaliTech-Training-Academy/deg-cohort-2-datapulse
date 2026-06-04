@@ -310,15 +310,16 @@ class TestReportFilters:
         )
         return uploaded
 
-    def test_filter_by_status_completed(self, auth_client, with_rule):
+    def test_filter_by_status_healthy(self, auth_client, with_rule):
+        # CLEAN_CSV — all rows valid → score=100 → healthy
         auth_client.post(run_check_url(with_rule["id"]))
-        resp = auth_client.get(f"{reports_url(with_rule['id'])}?status=completed")
+        resp = auth_client.get(f"{reports_url(with_rule['id'])}?status=healthy")
         assert resp.json()["count"] == 1
-        assert resp.json()["results"][0]["status"] == "completed"
+        assert resp.json()["results"][0]["status"] == "healthy"
 
     def test_filter_by_status_no_match(self, auth_client, with_rule):
         auth_client.post(run_check_url(with_rule["id"]))
-        resp = auth_client.get(f"{reports_url(with_rule['id'])}?status=failed")
+        resp = auth_client.get(f"{reports_url(with_rule['id'])}?status=warning")
         assert resp.json()["count"] == 0
 
     def test_date_from_filters_reports(self, auth_client, with_rule):

@@ -9,7 +9,12 @@ import logging
 
 from django.contrib.auth import get_user_model
 from django.db.models import Count, F, OuterRef, Subquery
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
@@ -59,6 +64,39 @@ class RegisterView(APIView):
                 description="Validation error (e.g. passwords don't match, email taken)"
             ),
         },
+        examples=[
+            OpenApiExample(
+                name="Regular User",
+                summary="Register a standard user account",
+                description=(
+                    "Creates a user with role=user. "
+                    "A verification email is sent — the account cannot log in until verified."
+                ),
+                value={
+                    "email": "alice@company.com",
+                    "first_name": "Alice",
+                    "last_name": "Mbeki",
+                    "password": "SecurePass123!",
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Admin User",
+                summary="Register an admin account",
+                description=(
+                    "Creates a user with role=admin. "
+                    "Admin accounts have elevated permissions within the platform."
+                ),
+                value={
+                    "email": "admin@company.com",
+                    "first_name": "Bob",
+                    "last_name": "Kagabo",
+                    "password": "AdminPass456!",
+                    "role": "admin",
+                },
+                request_only=True,
+            ),
+        ],
     )
     def post(self, request: Request) -> Response:
         serializer = RegisterSerializer(data=request.data)
@@ -240,9 +278,12 @@ class ResetPasswordView(APIView):
 _ADMIN_TAG = ["Admin"]
 
 _VALID_ORDERINGS = {
-    "created_at", "-created_at",
-    "last_login", "-last_login",
-    "datasets_count", "-datasets_count",
+    "created_at",
+    "-created_at",
+    "last_login",
+    "-last_login",
+    "datasets_count",
+    "-datasets_count",
 }
 
 
@@ -352,9 +393,9 @@ class AdminDatasetListView(generics.ListAPIView):
 
     def get_queryset(self):
         # Subquery: pick fields from the single most-recent report for each dataset
-        latest_report = QualityReport.objects.filter(
-            dataset=OuterRef("pk")
-        ).order_by("-generated_at")
+        latest_report = QualityReport.objects.filter(dataset=OuterRef("pk")).order_by(
+            "-generated_at"
+        )
 
         qs = (
             Dataset.objects.select_related("user")
