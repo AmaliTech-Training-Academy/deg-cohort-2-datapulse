@@ -84,8 +84,13 @@ class RunCheckView(APIView):
                 "Add at least one rule before running a check."
             )
 
-        # 3. Create report record with default status (failing) until scored
-        report = QualityReport.objects.create(dataset=dataset)
+        # 3. Create report record — snapshot file title and version at this moment
+        #    so the report permanently records which file it was run against.
+        report = QualityReport.objects.create(
+            dataset=dataset,
+            dataset_file_title=dataset.file_title or dataset.file_name,
+            dataset_file_version=dataset.file_version,
+        )
 
         try:
             # 4. Load the file into a DataFrame
