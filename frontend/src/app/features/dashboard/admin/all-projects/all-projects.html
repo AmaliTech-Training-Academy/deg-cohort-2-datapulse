@@ -74,7 +74,7 @@
       </thead>
       <tbody>
         @for (project of filteredProjects(); track project.id) {
-          <tr>
+          <tr class="row--clickable" (click)="goToProject(project.id)">
             <td>
               <div class="project-cell">
                 <span class="project-name">{{ project.name }}</span>

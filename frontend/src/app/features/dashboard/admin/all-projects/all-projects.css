@@ -128,6 +128,7 @@
   color: var(--color-text-primary);
 }
 .data-table tr:hover td { background: var(--color-surface-raised); }
+.row--clickable { cursor: pointer; }
 
 .project-cell { display: flex; align-items: center; gap: 10px; }
 .project-name { font-weight: 500; }
