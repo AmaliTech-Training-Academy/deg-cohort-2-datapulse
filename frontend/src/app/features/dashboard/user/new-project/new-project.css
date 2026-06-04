@@ -71,3 +71,9 @@
 .step-connector--done {
   background: var(--color-success);
 }
+
+@media (max-width: 640px) {
+  .wizard__steps { gap: 0; }
+  .step-indicator { font-size: 11px; gap: 6px; }
+  .step-connector { margin: 0 8px; }
+}
