@@ -1,15 +1,53 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { MockDataService } from '../../../../shared/services/mock-data.service';
-import { Project, ValidationRule } from '../../../../shared/models/dashboard.models';
+import { ValidationRule, ScoreTrendPoint } from '../../../../shared/models/dashboard.models';
 import { selectUserRole } from '../../../../features/auth/store/auth.selectors';
 import { StatCardComponent } from '../../../../shared/ui/stat-card/stat-card';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge';
 import { TrendChartComponent } from '../../../../shared/ui/trend-chart/trend-chart';
 import { ConfirmationModalComponent } from '../../../../shared/ui/confirmation-modal/confirmation-modal';
+import * as ProjectDetailActions from '../../store/project-detail/project-detail.actions';
+import * as ReportsActions from '../../store/reports/reports.actions';
+import * as TrendsActions from '../../store/trends/trends.actions';
+import { selectProjectDetailDataset, selectProjectDetailLoading } from '../../store/project-detail/project-detail.selectors';
+import { selectAllReports, selectReportsLoading, selectReportsSummary } from '../../store/reports/reports.selectors';
+import { selectTrendsData, selectTrendsLoading } from '../../store/trends/trends.selectors';
+import { ProjectStatus } from '../../models/project.model';
 
-interface EditDraft { name: string; description: string; type: ValidationRule['type']; column: string }
+interface EditDraft {
+  name: string;
+  description: string;
+  type: ValidationRule['type'];
+  column: string;
+}
+
+// View model that maps API data into the shape the template expects
+interface ReportAsDataset {
+  id: string;
+  projectId: string;
+  name: string;
+  version: string;
+  rows: number;
+  score: number;
+  status: ProjectStatus;
+  uploadedAt: string;
+  activeRules: number;
+  failingRows: number;
+}
+
+interface ProjectDetailView {
+  id: string;
+  name: string;
+  datasetCount: number;
+  activeRulesCount: number;
+  lastRunAt: string;
+  avgScore: number;
+  status: ProjectStatus;
+  datasets: ReportAsDataset[];
+  scoreTrend: ScoreTrendPoint[];
+}
 
 @Component({
   selector: 'app-project-detail',
@@ -18,7 +56,7 @@ interface EditDraft { name: string; description: string; type: ValidationRule['t
   templateUrl: './project-detail.html',
   styleUrl: './project-detail.css',
 })
-export class ProjectDetailComponent implements OnInit {
+export class ProjectDetailComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly dataService = inject(MockDataService);
   private readonly store = inject(Store);
@@ -27,10 +65,63 @@ export class ProjectDetailComponent implements OnInit {
   protected readonly projectsLink = () =>
     this.role() === 'admin' ? '/dashboard/all-projects' : '/dashboard/projects';
 
-  protected readonly project = signal<Project | undefined>(undefined);
-  protected readonly loading = signal(true);
+  // Store signals
+  private readonly datasetFromStore = this.store.selectSignal(selectProjectDetailDataset);
+  private readonly projectDetailLoading = this.store.selectSignal(selectProjectDetailLoading);
+  private readonly allReports = this.store.selectSignal(selectAllReports);
+  private readonly reportsSummary = this.store.selectSignal(selectReportsSummary);
+  private readonly trendsData = this.store.selectSignal(selectTrendsData);
+  private readonly reportsLoading = this.store.selectSignal(selectReportsLoading);
+  private readonly trendsLoading = this.store.selectSignal(selectTrendsLoading);
 
-  // Manage rules view
+  // Combined loading — true until all three APIs respond
+  protected readonly loading = computed(
+    () => this.projectDetailLoading() || this.reportsLoading() || this.trendsLoading(),
+  );
+
+  // Combined view model built from store data
+  protected readonly project = computed((): ProjectDetailView | undefined => {
+    const dataset = this.datasetFromStore();
+    if (!dataset) return undefined;
+
+    const reports = this.allReports();
+    const summary = this.reportsSummary();
+    const trends = this.trendsData();
+
+    const datasets: ReportAsDataset[] = reports.map((r) => ({
+      id: r.id,
+      projectId: dataset.id,
+      name: r.datasetFileTitle || dataset.file_title || dataset.file_name,
+      version: `v${r.datasetFileVersion}`,
+      rows: r.fileRowsAnalyzed ?? 0,
+      score: r.overallScore ?? 0,
+      status: r.status,
+      uploadedAt: r.generatedAt,
+      activeRules: 0,
+      failingRows: r.totalRowsFailed ?? 0,
+    }));
+
+    const scoreTrend: ScoreTrendPoint[] = trends.map((t) => ({
+      version: t.snapshotDate,
+      score: t.aggregatedScore,
+    }));
+
+    const avgScore = Math.round(summary?.averageScore ?? 0);
+
+    return {
+      id: dataset.id,
+      name: dataset.file_title || dataset.file_name,
+      datasetCount: summary?.totalActiveReports ?? 0,
+      activeRulesCount: summary?.totalActiveRules ?? 0,
+      lastRunAt: summary?.lastRuleCheckTime ?? dataset.updated_at,
+      avgScore,
+      status: avgScore >= 85 ? 'healthy' : avgScore >= 70 ? 'warning' : 'failing',
+      datasets,
+      scoreTrend,
+    };
+  });
+
+  // Manage rules view — kept with MockDataService (rule management not in scope)
   protected readonly showManageRules = signal(false);
   protected readonly selectedDatasetId = signal<string>('');
   protected readonly validationRules = signal<ValidationRule[]>([]);
@@ -62,10 +153,20 @@ export class ProjectDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
-    this.dataService.getProjectById(id).subscribe((p) => {
-      this.project.set(p);
-      this.loading.set(false);
-    });
+    // Clear stale state before loading new project
+    this.store.dispatch(ProjectDetailActions.clearProjectDetail());
+    this.store.dispatch(ReportsActions.clearReports());
+    this.store.dispatch(TrendsActions.clearTrends());
+    // Dispatch all three in parallel — effects run concurrently
+    this.store.dispatch(ProjectDetailActions.loadProjectDetail({ datasetId: id }));
+    this.store.dispatch(ReportsActions.loadReports({ datasetId: id }));
+    this.store.dispatch(TrendsActions.loadTrends({ datasetId: id }));
+  }
+
+  ngOnDestroy(): void {
+    this.store.dispatch(ProjectDetailActions.clearProjectDetail());
+    this.store.dispatch(ReportsActions.clearReports());
+    this.store.dispatch(TrendsActions.clearTrends());
   }
 
   protected openManageRules(): void {
@@ -103,7 +204,12 @@ export class ProjectDetailComponent implements OnInit {
 
   protected startEdit(rule: ValidationRule): void {
     this.editingRuleId.set(rule.id);
-    this.editDraft.set({ name: rule.name, description: rule.description, type: rule.type, column: rule.column });
+    this.editDraft.set({
+      name: rule.name,
+      description: rule.description,
+      type: rule.type,
+      column: rule.column,
+    });
   }
 
   protected patchDraft(key: keyof EditDraft, e: Event): void {
@@ -172,9 +278,12 @@ export class ProjectDetailComponent implements OnInit {
 
   protected statusVariant(status: string): 'success' | 'warning' | 'danger' {
     switch (status) {
-      case 'healthy': return 'success';
-      case 'warning': return 'warning';
-      default: return 'danger';
+      case 'healthy':
+        return 'success';
+      case 'warning':
+        return 'warning';
+      default:
+        return 'danger';
     }
   }
 

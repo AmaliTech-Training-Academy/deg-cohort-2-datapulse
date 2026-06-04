@@ -97,6 +97,13 @@ export const routes: Routes = [
               ),
           },
           {
+            path: ':id/reports/:reportId',
+            loadComponent: () =>
+              import('./features/dashboard/user/quality-report/quality-report').then(
+                (m) => m.QualityReportComponent,
+              ),
+          },
+          {
             path: ':id/:datasetId',
             loadComponent: () =>
               import('./features/dashboard/user/quality-report/quality-report').then(

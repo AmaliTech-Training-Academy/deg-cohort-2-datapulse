@@ -267,7 +267,7 @@
 
       <div class="card">
         <div class="card__header">
-          <h2 class="card__title">Datasets</h2>
+          <h2 class="card__title">Reports</h2>
           <p class="card__subtitle">Latest version of each file in this project</p>
           <div style="flex:1"></div>
           <button class="btn-secondary" type="button" (click)="openManageRules()">Manage rules</button>
@@ -285,7 +285,7 @@
           </thead>
           <tbody>
             @for (dataset of p.datasets; track dataset.id) {
-              <tr class="dataset-row" [routerLink]="['/dashboard/projects', p.id, dataset.id]">
+              <tr class="dataset-row" [routerLink]="['/dashboard/projects', p.id, 'reports', dataset.id]">
                 <td>
                   <div class="file-cell">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="file-icon">
