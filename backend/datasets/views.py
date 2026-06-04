@@ -133,8 +133,10 @@ class DatasetListView(APIView):
     Returns datasets belonging to the authenticated user, most recent first.
 
     Filters (all optional, combinable):
-        ?search=<str>        case-insensitive substring match on file_title or file_name
-        ?file_type=csv|json  exact match on file type
+        ?search=<str>            case-insensitive substring match on file_title or file_name
+        ?file_type=csv|json      exact match on file type
+        ?created_from=YYYY-MM-DD datasets uploaded on or after this date
+        ?created_to=YYYY-MM-DD   datasets uploaded on or before this date
 
     Pagination:
         ?page=<n>            page number (default 1)
@@ -161,6 +163,20 @@ class DatasetListView(APIView):
                 enum=["csv", "json"],
             ),
             OpenApiParameter(
+                name="created_from",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Return datasets uploaded on or after this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="created_to",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Return datasets uploaded on or before this date (YYYY-MM-DD).",
+                required=False,
+            ),
+            OpenApiParameter(
                 name="page",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.QUERY,
@@ -179,10 +195,12 @@ class DatasetListView(APIView):
         summary="List datasets for the authenticated user",
         description=(
             "Returns a paginated list of the authenticated user's datasets. "
-            "Supports filtering by file type and substring search on title or filename."
+            "Supports filtering by file type, substring search, and upload date range."
         ),
     )
     def get(self, request: Request) -> Response:
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+
         queryset = Dataset.objects.filter(user=request.user).order_by("-created_at")
 
         # Filter: ?file_type=csv|json
@@ -198,6 +216,26 @@ class DatasetListView(APIView):
             queryset = queryset.filter(
                 Q(file_title__icontains=search) | Q(file_name__icontains=search)
             )
+
+        # Filter: ?created_from=YYYY-MM-DD
+        created_from = request.query_params.get("created_from")
+        if created_from:
+            try:
+                queryset = queryset.filter(created_at__date__gte=created_from)
+            except (ValueError, TypeError):
+                raise DRFValidationError(
+                    {"created_from": "Invalid date format. Use YYYY-MM-DD."}
+                )
+
+        # Filter: ?created_to=YYYY-MM-DD
+        created_to = request.query_params.get("created_to")
+        if created_to:
+            try:
+                queryset = queryset.filter(created_at__date__lte=created_to)
+            except (ValueError, TypeError):
+                raise DRFValidationError(
+                    {"created_to": "Invalid date format. Use YYYY-MM-DD."}
+                )
 
         paginator = DataPulsePagination()
         page = paginator.paginate_queryset(queryset, request)
