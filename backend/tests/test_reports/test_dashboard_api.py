@@ -23,11 +23,7 @@ import pytest
 UPLOAD_URL = "/api/v1/datasets/upload/"
 DASHBOARD_URL = "/api/v1/dashboard/"
 
-VALID_CSV = (
-    b"id,age,email\n"
-    b"1,25,alice@test.com\n"
-    b"2,30,bob@test.com\n"
-)
+VALID_CSV = b"id,age,email\n" b"1,25,alice@test.com\n" b"2,30,bob@test.com\n"
 
 
 def csv_file(name="data.csv"):
@@ -50,7 +46,11 @@ def uploaded(auth_client, settings, tmp_path):
     settings.MEDIA_ROOT = str(tmp_path)
     resp = auth_client.post(
         UPLOAD_URL,
-        {"file": csv_file(), "file_title": "Employee Data", "description": "Test dataset"},
+        {
+            "file": csv_file(),
+            "file_title": "Employee Data",
+            "description": "Test dataset",
+        },
         format="multipart",
     )
     assert resp.status_code == 201
@@ -109,7 +109,9 @@ class TestDashboardShape:
         ):
             assert field in block
 
-    def test_dataset_block_contains_title_and_description(self, auth_client, with_report):
+    def test_dataset_block_contains_title_and_description(
+        self, auth_client, with_report
+    ):
         resp = auth_client.get(DASHBOARD_URL)
         ds = resp.json()["results"][0]["dataset"]
         assert ds["file_title"] == "Employee Data"

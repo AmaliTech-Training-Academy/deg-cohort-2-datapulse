@@ -284,14 +284,14 @@ class DashboardView(APIView):
                 name="date_from",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="Only include datasets whose latest report was generated on or after this date (YYYY-MM-DD).",
+                description="Only include datasets whose latest report was generated on or after this date (YYYY-MM-DD).",  # noqa: E501
                 required=False,
             ),
             OpenApiParameter(
                 name="date_to",
                 type=OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="Only include datasets whose latest report was generated on or before this date (YYYY-MM-DD).",
+                description="Only include datasets whose latest report was generated on or before this date (YYYY-MM-DD).",  # noqa: E501
                 required=False,
             ),
             OpenApiParameter(
