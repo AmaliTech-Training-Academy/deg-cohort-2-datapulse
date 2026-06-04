@@ -5,7 +5,16 @@ import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import * as AuthActions from '../store/auth.actions';
 
-const defaultAuthState = { user: null, loading: false, error: null, forgotPasswordSent: false };
+const defaultAuthState = {
+  user: null,
+  loading: false,
+  error: null,
+  forgotPasswordSent: false,
+  registrationComplete: false,
+  emailVerificationSent: false,
+  emailVerified: false,
+  passwordResetSuccess: false,
+};
 
 describe('RegisterComponent', () => {
   async function setup(authState: Partial<typeof defaultAuthState> = {}) {
@@ -43,7 +52,7 @@ describe('RegisterComponent', () => {
     expect(screen.getByRole('button', { name: /create account/i })).toBeDisabled();
   });
 
-  it('dispatches register action combining first and last name', async () => {
+  it('dispatches register action with separate first_name and last_name', async () => {
     const { store } = await setup();
     const dispatchSpy = jest.spyOn(store, 'dispatch');
 
@@ -57,7 +66,8 @@ describe('RegisterComponent', () => {
 
     expect(dispatchSpy).toHaveBeenCalledWith(
       AuthActions.register({
-        name: 'Jordan Lee',
+        first_name: 'Jordan',
+        last_name: 'Lee',
         email: 'jordan@example.com',
         password: 'secure123',
       }),
@@ -84,6 +94,12 @@ describe('RegisterComponent', () => {
     fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     expect(dispatchSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows success card when registrationComplete is true', async () => {
+    await setup({ registrationComplete: true });
+    expect(screen.queryByRole('button', { name: /create account/i })).toBeNull();
+    expect(screen.getByText(/check your inbox/i)).toBeTruthy();
   });
 
   it('has a sign in link', async () => {

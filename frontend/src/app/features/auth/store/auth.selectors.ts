@@ -14,5 +14,21 @@ export const selectForgotPasswordSent = createSelector(
   selectAuthState,
   (state) => state.forgotPasswordSent,
 );
+export const selectRegistrationComplete = createSelector(
+  selectAuthState,
+  (state) => state.registrationComplete,
+);
+export const selectEmailVerificationSent = createSelector(
+  selectAuthState,
+  (state) => state.emailVerificationSent,
+);
+export const selectEmailVerified = createSelector(
+  selectAuthState,
+  (state) => state.emailVerified,
+);
+export const selectPasswordResetSuccess = createSelector(
+  selectAuthState,
+  (state) => state.passwordResetSuccess,
+);
 
 export const selectUserRole = createSelector(selectAuthState, (state) => state.user?.role ?? null);

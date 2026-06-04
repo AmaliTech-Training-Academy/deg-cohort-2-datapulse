@@ -6,32 +6,29 @@ import * as AuthActions from '../store/auth.actions';
 import {
   selectAuthLoading,
   selectAuthError,
-  selectRegistrationComplete,
+  selectForgotPasswordSent,
 } from '../store/auth.selectors';
 import { AuthLayoutComponent } from '../auth-layout/auth-layout';
 import { InputComponent } from '../../../shared/ui/input/input';
 import { ButtonComponent } from '../../../shared/ui/button/button';
 
 @Component({
-  selector: 'app-register',
+  selector: 'app-forgot-password',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink, AuthLayoutComponent, InputComponent, ButtonComponent],
-  templateUrl: './register.html',
-  styleUrl: './register.css',
+  templateUrl: './forgot-password.html',
+  styleUrl: './forgot-password.css',
 })
-export class RegisterComponent {
+export class ForgotPasswordComponent {
   private readonly store = inject(Store);
   private readonly fb = inject(FormBuilder);
 
   readonly loading = this.store.selectSignal(selectAuthLoading);
   readonly error = this.store.selectSignal(selectAuthError);
-  readonly registrationComplete = this.store.selectSignal(selectRegistrationComplete);
+  readonly sent = this.store.selectSignal(selectForgotPasswordSent);
 
   form = this.fb.group({
-    firstName: ['', Validators.required],
-    lastName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(8)]],
   });
 
   submit(): void {
@@ -39,21 +36,7 @@ export class RegisterComponent {
       this.form.markAllAsTouched();
       return;
     }
-    const { firstName, lastName, email, password } = this.form.getRawValue();
-    this.store.dispatch(
-      AuthActions.register({
-        first_name: firstName!,
-        last_name: lastName!,
-        email: email!,
-        password: password!,
-      }),
-    );
-  }
-
-  resendVerification(): void {
-    const email = this.form.getRawValue().email;
-    if (email) {
-      this.store.dispatch(AuthActions.resendVerification({ email }));
-    }
+    const { email } = this.form.getRawValue();
+    this.store.dispatch(AuthActions.forgotPassword({ email: email! }));
   }
 }

@@ -1,8 +1,16 @@
 import { test, expect } from '@playwright/test';
 
-const API_LOGIN = '**/auth/login';
+const API_LOGIN = '**/v1/auth/login/';
 
-const mockUser = { id: '1', email: 'user@example.com', name: 'Test User', role: 'user' };
+const mockUser = {
+  id: '1',
+  email: 'user@example.com',
+  first_name: 'Test',
+  last_name: 'User',
+  role: 'user',
+  created_at: '2026-06-03T00:00:00Z',
+  is_email_verified: true,
+};
 
 test.describe('Login page', () => {
   test.beforeEach(async ({ page }) => {
@@ -35,9 +43,9 @@ test.describe('Login page', () => {
   test('shows error alert on invalid credentials (401)', async ({ page }) => {
     await page.route(API_LOGIN, (route) =>
       route.fulfill({
-        status: 401,
+        status: 400,
         contentType: 'application/json',
-        body: JSON.stringify({ message: 'Invalid credentials' }),
+        body: JSON.stringify({ detail: 'Invalid credentials' }),
       }),
     );
 
@@ -49,12 +57,28 @@ test.describe('Login page', () => {
     await expect(page.url()).toContain('/login');
   });
 
+  test('shows resend verification button on email-not-verified error', async ({ page }) => {
+    await page.route(API_LOGIN, (route) =>
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Email not verified' }),
+      }),
+    );
+
+    await page.getByLabel(/email/i).fill('unverified@example.com');
+    await page.locator('input[type="password"]').fill('password123');
+    await page.getByRole('button', { name: /sign in/i }).click();
+
+    await expect(page.getByRole('button', { name: /resend verification/i })).toBeVisible();
+  });
+
   test('navigates to /dashboard on successful login', async ({ page }) => {
     await page.route(API_LOGIN, (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ user: mockUser, token: 'test-token-abc' }),
+        body: JSON.stringify({ access: 'acc-tok', refresh: 'ref-tok', user: mockUser }),
       }),
     );
 
@@ -66,10 +90,10 @@ test.describe('Login page', () => {
     expect(page.url()).toContain('/dashboard');
   });
 
-  test('navigates to /reset-password via the forgot password link', async ({ page }) => {
+  test('navigates to /forgot-password via the forgot password link', async ({ page }) => {
     await page.getByRole('link', { name: /forgot password/i }).click();
-    await page.waitForURL('**/reset-password');
-    expect(page.url()).toContain('/reset-password');
+    await page.waitForURL('**/forgot-password');
+    expect(page.url()).toContain('/forgot-password');
   });
 
   test('navigates to /register via the create an account link', async ({ page }) => {
