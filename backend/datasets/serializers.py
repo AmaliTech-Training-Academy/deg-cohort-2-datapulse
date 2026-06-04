@@ -8,9 +8,13 @@ DatasetFileUpdateSerializer      — validates multipart file replacement reques
 DatasetFileReplaceResponseSerializer — file replacement response with stale_rule_columns
 """
 
+from django.contrib.auth import get_user_model
+
 from rest_framework import serializers
 
 from .models import Dataset
+
+User = get_user_model()
 
 
 class DatasetUploadSerializer(serializers.Serializer):
@@ -101,6 +105,47 @@ class DatasetFileUpdateSerializer(serializers.Serializer):
     file = serializers.FileField(
         help_text="Replacement CSV or JSON file. Maximum 10 MB, 50,000 rows.",
     )
+
+
+class DatasetOwnerSerializer(serializers.ModelSerializer):
+    """Minimal user info embedded in admin dataset responses."""
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name", "last_name"]
+        read_only_fields = fields
+
+
+class AdminDatasetResponseSerializer(DatasetResponseSerializer):
+    """
+    Extends DatasetResponseSerializer with owner info and latest report summary.
+    Used by DatasetListView when the authenticated user has role='admin'.
+    Field names match the real model fields on Dataset and QualityReport.
+    """
+
+    user = DatasetOwnerSerializer(read_only=True)
+    reports_count = serializers.IntegerField(read_only=True)
+    # latest_report groups the three QualityReport fields under one key so
+    # the frontend knows they belong to the most recent check run.
+    latest_report = serializers.SerializerMethodField()
+
+    class Meta(DatasetResponseSerializer.Meta):
+        fields = DatasetResponseSerializer.Meta.fields + [
+            "user",
+            "reports_count",
+            "latest_report",
+        ]
+        read_only_fields = fields
+
+    def get_latest_report(self, obj):
+        # ann_* values are annotated by AdminDatasetListView.get_queryset()
+        if obj.ann_status is None and obj.ann_overall_score is None:
+            return None
+        return {
+            "overall_score": obj.ann_overall_score,
+            "status": obj.ann_status,
+            "generated_at": obj.ann_generated_at,
+        }
 
 
 class DatasetFileReplaceResponseSerializer(serializers.ModelSerializer):
