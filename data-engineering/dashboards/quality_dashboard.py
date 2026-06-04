@@ -25,7 +25,6 @@ from analytics import (
     quality_trend,
     worst_datasets,
     monthly_summary,
-    score_dataframe,
 )
 
 # Page config
@@ -36,20 +35,20 @@ st.set_page_config(
 )
 
 # Header 
-st.title("📊 DataPulse — Data Quality Dashboard")
+st.title("📊 DataPulse Data Quality Dashboard")
 st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 st.divider()
 
 # Load data 
-@st.cache_data
+@st.cache_data(ttl=30)  # Cache for 5 minutes
 def load_summary():
     return score_summary()
 
-@st.cache_data
+@st.cache_data(ttl=30)
 def load_rule_failures():
     return rule_failure_rates()
 
-@st.cache_data
+@st.cache_data(ttl=30)
 def load_monthly():
     return monthly_summary()
 

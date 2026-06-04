@@ -176,6 +176,8 @@ SIMPLE_JWT = {
     # The response field names returned by the login view
     "ACCESS_TOKEN": "access",
     "REFRESH_TOKEN": "refresh",
+    # Update last_login on every successful token obtain (powers "last active" in admin dashboard)
+    "UPDATE_LAST_LOGIN": True,
 }
 # drf-spectacular (OpenAPI schema generation for Swagger UI)
 SPECTACULAR_SETTINGS = {

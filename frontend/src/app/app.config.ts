@@ -16,7 +16,8 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor])),
+    // errorInterceptor first so authInterceptor handles the raw HttpErrorResponse (401 refresh logic)
+    provideHttpClient(withInterceptors([errorInterceptor, authInterceptor])),
     provideStore({ auth: authReducer }),
     provideEffects(authEffects),
     ...(environment.production ? [] : [provideStoreDevtools({ maxAge: 25 })]),

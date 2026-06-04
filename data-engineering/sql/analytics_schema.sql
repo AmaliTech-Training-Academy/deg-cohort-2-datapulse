@@ -38,3 +38,10 @@ CREATE TABLE IF NOT EXISTS fact_quality_checks (
     severity VARCHAR(10),
     checked_at TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS fact_trend_metrics (
+    id SERIAL PRIMARY KEY,
+    dataset_id INTEGER REFERENCES dim_datasets(id),
+    snapshot_date DATE,
+    aggregated_score FLOAT
+);

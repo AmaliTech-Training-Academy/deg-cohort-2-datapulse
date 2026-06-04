@@ -1,55 +1,62 @@
 import { test, expect } from '@playwright/test';
 
-const API_FORGOT_PASSWORD = '**/auth/forgot-password';
+const API_RESET_PASSWORD = '**/v1/auth/reset-password/';
 
-test.describe('Reset Password page', () => {
-  test.beforeEach(async ({ page }) => {
+test.describe('Reset Password page (token-based)', () => {
+  test('shows invalid link error when uid or token are missing', async ({ page }) => {
     await page.goto('/reset-password');
+    await expect(page.getByText(/invalid reset link/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /set new password/i })).not.toBeVisible();
   });
 
-  test('renders the email field and submit button', async ({ page }) => {
-    await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /send reset link/i })).toBeVisible();
-  });
+  test.describe('with valid uid and token in URL', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/reset-password?uid=test-uid&token=test-token');
+    });
 
-  test('has a back to sign in link', async ({ page }) => {
-    await expect(page.getByRole('link', { name: /back to sign in/i })).toBeVisible();
-  });
+    test('renders password and confirm password fields', async ({ page }) => {
+      await expect(page.locator('input[type="password"]').first()).toBeVisible();
+      await expect(page.getByRole('button', { name: /set new password/i })).toBeVisible();
+    });
 
-  test('does not show the success card initially', async ({ page }) => {
-    await expect(page.getByText(/check your email/i)).not.toBeVisible();
-  });
+    test('has a back to sign in link', async ({ page }) => {
+      await expect(page.getByRole('link', { name: /back to sign in/i })).toBeVisible();
+    });
 
-  test('shows required validation error on empty submit', async ({ page }) => {
-    await page.getByRole('button', { name: /send reset link/i }).click();
-    await expect(page.getByRole('alert')).toBeVisible();
-  });
+    test('shows success card after successful password reset', async ({ page }) => {
+      await page.route(API_RESET_PASSWORD, (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({}),
+        }),
+      );
 
-  test('shows email validation error for an invalid email', async ({ page }) => {
-    await page.getByLabel(/email/i).fill('not-valid');
-    await page.getByRole('button', { name: /send reset link/i }).click();
-    await expect(page.getByText(/enter a valid email/i)).toBeVisible();
-  });
+      const passwordInputs = page.locator('input[type="password"]');
+      await passwordInputs.nth(0).fill('newpassword123');
+      await passwordInputs.nth(1).fill('newpassword123');
+      await page.getByRole('button', { name: /set new password/i }).click();
 
-  test('shows success card and hides form after successful submission', async ({ page }) => {
-    await page.route(API_FORGOT_PASSWORD, (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({}),
-      }),
-    );
+      await expect(page.getByText(/password reset!/i)).toBeVisible();
+      await expect(page.getByRole('link', { name: /back to sign in/i })).toBeVisible();
+    });
 
-    await page.getByLabel(/email/i).fill('user@example.com');
-    await page.getByRole('button', { name: /send reset link/i }).click();
+    test('shows error alert on invalid/expired token (400)', async ({ page }) => {
+      await page.route(API_RESET_PASSWORD, (route) =>
+        route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Token is invalid or expired' }),
+        }),
+      );
 
-    await expect(page.getByText(/check your email/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /send reset link/i })).not.toBeVisible();
-  });
+      const passwordInputs = page.locator('input[type="password"]');
+      await passwordInputs.nth(0).fill('newpassword123');
+      await passwordInputs.nth(1).fill('newpassword123');
+      await page.getByRole('button', { name: /set new password/i }).click();
 
-  test('navigates to /login via the back to sign in link', async ({ page }) => {
-    await page.getByRole('link', { name: /back to sign in/i }).click();
-    await page.waitForURL('**/login');
-    expect(page.url()).toContain('/login');
+      await expect(page.getByRole('alert')).toBeVisible();
+      expect(page.url()).toContain('/reset-password');
+    });
   });
 });

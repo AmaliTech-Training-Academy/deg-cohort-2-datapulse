@@ -1,0 +1,77 @@
+<div class="page">
+  <div class="page__header">
+    <div>
+      <h1 class="page__title">Alerts</h1>
+      <p class="page__subtitle">Platform-wide issues across all 42 projects</p>
+    </div>
+    <button class="btn-secondary" type="button" (click)="markAllRead()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      Mark all read
+    </button>
+  </div>
+
+  <div class="stats-grid">
+    <app-stat-card label="Critical" [value]="stats().critical" subtitle="failing datasets" valueClass="value--danger" />
+    <app-stat-card label="Warnings" [value]="stats().warnings" subtitle="degraded quality" valueClass="value--warning" />
+    <app-stat-card label="Unread" [value]="stats().unread" subtitle="since last visit" />
+    <app-stat-card label="Resolved (24H)" [value]="stats().resolved" subtitle="auto-cleared" valueClass="value--success" />
+  </div>
+
+  <div class="feed-card">
+    <div class="feed-header">
+      <h2 class="feed-title">Alert feed</h2>
+      <div class="filter-tabs">
+        <button class="filter-tab" [class.filter-tab--active]="activeFilter() === 'all'" (click)="setFilter('all')" type="button">
+          All <span class="tab-count">{{ tabCounts().all }}</span>
+        </button>
+        <button class="filter-tab" [class.filter-tab--active]="activeFilter() === 'unread'" (click)="setFilter('unread')" type="button">
+          Unread <span class="tab-count">{{ tabCounts().unread }}</span>
+        </button>
+        <button class="filter-tab" [class.filter-tab--active]="activeFilter() === 'resolved'" (click)="setFilter('resolved')" type="button">
+          Resolved <span class="tab-count">{{ tabCounts().resolved }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="feed-list">
+      @for (alert of filtered(); track alert.id) {
+        <div class="alert-row" [class.alert-row--unread]="!alert.isRead">
+          <div class="alert-row__border" [style.background]="severityColor(alert.severity)"></div>
+          <div class="alert-row__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+              [attr.stroke]="severityColor(alert.severity)"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path [attr.d]="severityIcon(alert.severity)" />
+            </svg>
+          </div>
+          <div class="alert-row__body">
+            <div class="alert-row__title-row">
+              @if (!alert.isRead) {
+                <span class="unread-dot"></span>
+              }
+              <span class="alert-row__title">{{ alert.title }}</span>
+            </div>
+            <p class="alert-row__desc">{{ alert.description }}</p>
+          </div>
+          <div class="alert-row__meta">
+            <span class="project-tag">{{ alert.projectName }}</span>
+            @if (alert.assigneeName) {
+              <span class="assignee">{{ alert.assigneeName }}</span>
+            }
+            <span class="alert-time">{{ relativeTime(alert.createdAt) }}</span>
+          </div>
+          <button class="alert-row__arrow" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        </div>
+      }
+      @empty {
+        <div class="empty">No alerts in this category.</div>
+      }
+    </div>
+  </div>
+</div>
