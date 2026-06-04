@@ -30,6 +30,7 @@ Endpoint map:
   GET    /api/v1/dashboard/
 
   GET    /api/v1/admin/users/
+  GET    /api/v1/admin/datasets/
 """
 
 from django.urls import include, path

@@ -8,7 +8,7 @@ all request/response bodies correctly.
 import logging
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count
+from django.db.models import Count, F, OuterRef, Subquery
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -25,6 +25,7 @@ from accounts.throttles import (
     ResendVerificationThrottle,
 )
 from accounts.serializers import (
+    AdminDatasetListSerializer,
     AdminUserListSerializer,
     CustomTokenObtainPairSerializer,
     ForgotPasswordSerializer,
@@ -34,6 +35,8 @@ from accounts.serializers import (
     UserProfileSerializer,
     VerifyEmailSerializer,
 )
+from datasets.models import Dataset
+from reports.models import QualityReport
 from .tokens import make_email_verification_token, password_reset_token_generator
 
 User = get_user_model()
@@ -299,5 +302,73 @@ class AdminUserListView(generics.ListAPIView):
         ordering = self.request.query_params.get("ordering")
         if ordering in _VALID_ORDERINGS:
             qs = qs.order_by(ordering)
+
+        return qs
+
+
+_DATASET_ORDERING_MAP = {
+    "created_at": "created_at",
+    "-created_at": "-created_at",
+    # NULLs (datasets with no checks yet) always sink to the bottom
+    "last_check": F("last_check").asc(nulls_last=True),
+    "-last_check": F("last_check").desc(nulls_last=True),
+    "reports_count": "reports_count",
+    "-reports_count": "-reports_count",
+}
+
+
+class AdminDatasetListView(generics.ListAPIView):
+    """
+    GET /api/v1/admin/datasets/
+
+    Returns a paginated list of all datasets with their latest report info.
+    Admin-only.
+
+    Query params:
+      ordering  — one of: created_at, -created_at (default), last_check,
+                  -last_check, reports_count, -reports_count
+    """
+
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    serializer_class = AdminDatasetListSerializer
+
+    @extend_schema(
+        tags=_ADMIN_TAG,
+        summary="Admin — list all datasets with latest report info",
+        parameters=[
+            OpenApiParameter(
+                "ordering",
+                str,
+                description=(
+                    "Sort field: created_at, -created_at (default), "
+                    "last_check, -last_check, reports_count, -reports_count"
+                ),
+            ),
+        ],
+        responses={200: AdminDatasetListSerializer(many=True)},
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        # Subquery: pick fields from the single most-recent report for each dataset
+        latest_report = QualityReport.objects.filter(
+            dataset=OuterRef("pk")
+        ).order_by("-generated_at")
+
+        qs = (
+            Dataset.objects.select_related("user")
+            .annotate(
+                reports_count=Count("reports"),
+                latest_score=Subquery(latest_report.values("overall_score")[:1]),
+                latest_status=Subquery(latest_report.values("status")[:1]),
+                last_check=Subquery(latest_report.values("generated_at")[:1]),
+            )
+            .order_by("-created_at")
+        )
+
+        ordering = self.request.query_params.get("ordering")
+        if ordering in _DATASET_ORDERING_MAP:
+            qs = qs.order_by(_DATASET_ORDERING_MAP[ordering])
 
         return qs
