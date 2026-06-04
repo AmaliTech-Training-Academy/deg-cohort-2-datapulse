@@ -146,6 +146,6 @@ jobs:
             cd ~/datapulse
             git pull origin dev
 
-            ECR_REGISTRY=$ECR_REGISTRY docker compose -f docker-compose.prod.yml pull
-            ECR_REGISTRY=$ECR_REGISTRY docker compose -f docker-compose.prod.yml up -d
+            ECR_REGISTRY=$ECR_REGISTRY docker-compose -f docker-compose.prod.yml pull
+            ECR_REGISTRY=$ECR_REGISTRY docker-compose -f docker-compose.prod.yml up -d
             docker image prune -f
