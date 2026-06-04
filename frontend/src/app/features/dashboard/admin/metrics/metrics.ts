@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-metrics',
@@ -33,6 +34,6 @@ export class MetricsComponent {
   readonly metricsUrl: SafeResourceUrl;
 
   constructor(sanitizer: DomSanitizer) {
-    this.metricsUrl = sanitizer.bypassSecurityTrustResourceUrl('http://localhost:8501/');
+    this.metricsUrl = sanitizer.bypassSecurityTrustResourceUrl(environment.metricsUrl);
   }
 }
