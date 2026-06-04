@@ -28,7 +28,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from datasets.models import Dataset
-from reports.serializers import QualityReportSerializer
+from reports.serializers import RunCheckResponseSerializer
 from rules.models import ValidationRule
 
 from .services.check_service import run_quality_check
@@ -51,14 +51,16 @@ class RunCheckView(APIView):
     @extend_schema(
         request=None,
         responses={
-            201: QualityReportSerializer,
+            201: RunCheckResponseSerializer,
             400: None,
             404: None,
         },
         summary="Run a quality check on a dataset",
         description=(
             "Triggers a full validation run against all rules defined for the dataset. "
-            "Returns the completed QualityReport with per-rule findings and an overall score (0–100). "
+            "Returns the completed QualityReport with per-rule findings, overall score, "
+            "average_score, rules_applied, failing_checks, passing_checks, and "
+            "per-rule-type scores for all 4 rule types. "
             "Requires at least one rule to exist."
         ),
     )
@@ -92,7 +94,15 @@ class RunCheckView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        # Prefetch findings + rules so serializer computed fields don't N+1
+        from reports.models import QualityReport
+
+        report = (
+            QualityReport.objects.prefetch_related("findings__rule").get(
+                id=report.id
+            )
+        )
         return Response(
-            QualityReportSerializer(report).data,
+            RunCheckResponseSerializer(report).data,
             status=status.HTTP_201_CREATED,
         )
