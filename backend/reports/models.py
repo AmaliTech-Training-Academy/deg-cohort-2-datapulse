@@ -16,6 +16,11 @@ QualityReport.status values:
     healthy  — check completed, overall_score > 85
     warning  — check completed, 70 < overall_score ≤ 85
     failing  — check completed, overall_score ≤ 70
+
+QualityReport snapshots dataset_file_title and dataset_file_version at the
+moment the check is triggered.  This means each report permanently records
+which file title and version it was run against, even if the dataset is later
+renamed (PATCH /datasets/<id>/) or the file is replaced (PATCH /datasets/<id>/file/).
 """
 
 import uuid
@@ -51,6 +56,11 @@ class QualityReport(models.Model):
     total_rows_failed = models.IntegerField(null=True, blank=True)
     error_message = models.TextField(blank=True)
     generated_at = models.DateTimeField(auto_now_add=True)
+    # Snapshots of the dataset file at the time the check was triggered.
+    # Stored so the report permanently records which file title and version
+    # it was run against, independent of any later renames or replacements.
+    dataset_file_title = models.CharField(max_length=255, blank=True)
+    dataset_file_version = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "quality_reports"
