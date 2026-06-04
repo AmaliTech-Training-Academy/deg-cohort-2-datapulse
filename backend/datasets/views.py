@@ -235,7 +235,7 @@ class DatasetListView(APIView):
         summary="List datasets",
         description=(
             "Returns a paginated list of the authenticated user's datasets. "
-            "Supports filtering by file type and substring search on title or filename."
+            "Supports filtering by file type, substring search, and upload date range."
         ),
     )
     def get(self, request: Request) -> Response:
