@@ -84,10 +84,8 @@ class RunCheckView(APIView):
                 "Add at least one rule before running a check."
             )
 
-        # 3. Create report record — status=running immediately
-        report = QualityReport.objects.create(
-            dataset=dataset, status=QualityReport.Status.RUNNING
-        )
+        # 3. Create report record with default status (failing) until scored
+        report = QualityReport.objects.create(dataset=dataset)
 
         try:
             # 4. Load the file into a DataFrame
@@ -119,8 +117,9 @@ class RunCheckView(APIView):
             ]
             RuleFinding.objects.bulk_create(findings)
 
-            # 8. Mark report as completed
-            report.status = QualityReport.Status.COMPLETED
+            # 8. Set quality status derived from score:
+            #    healthy (>85) / warning (>70) / failing (≤70)
+            report.status = QualityReport.status_from_score(score_result.overall_score)
             report.overall_score = score_result.overall_score
             report.total_rows_passed = score_result.total_rows_passed
             report.total_rows_failed = score_result.total_rows_failed
@@ -141,15 +140,16 @@ class RunCheckView(APIView):
             )
 
             logger.info(
-                "Check completed: report=%s dataset=%s score=%d",
+                "Check completed: report=%s dataset=%s score=%d status=%s",
                 report.id,
                 dataset.id,
                 report.overall_score,
+                report.status,
             )
 
         except Exception as exc:
-            # Always mark failed — never leave status=running
-            report.status = QualityReport.Status.FAILED
+            # Mark as failing on error — never leave the record in a broken state
+            report.status = QualityReport.Status.FAILING
             report.error_message = str(exc)
             report.save(update_fields=["status", "error_message"])
             logger.exception("Check failed: report=%s error=%s", report.id, exc)

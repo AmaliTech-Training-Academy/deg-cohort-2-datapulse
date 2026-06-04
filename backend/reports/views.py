@@ -10,7 +10,7 @@ All views require authentication and enforce ownership — a user can only
 see reports and trends for their own datasets.
 
 ReportListView supports:
-    ?status=pending|running|completed|failed
+    ?status=healthy|warning|failing
     ?date_from=YYYY-MM-DD   — reports generated on or after this date
     ?date_to=YYYY-MM-DD     — reports generated on or before this date
     ?page=<n>               — page number (default 1)
@@ -69,9 +69,9 @@ class ReportListView(APIView):
                 name="status",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description="Filter by report status.",
+                description="Filter by quality status.",
                 required=False,
-                enum=["pending", "running", "completed", "failed"],
+                enum=["healthy", "warning", "failing"],
             ),
             OpenApiParameter(
                 name="date_from",
