@@ -1,48 +1,89 @@
 <app-auth-layout subtitle="Create your account in under a minute.">
-  <form [formGroup]="form" (ngSubmit)="submit()" class="auth-form" novalidate>
-    @if (error()) {
-      <div class="auth-alert" role="alert">{{ error() }}</div>
-    }
-
-    <div class="auth-form__row">
-      <app-input
-        label="First name"
-        type="text"
-        placeholder="Jordan"
-        autocomplete="given-name"
-        formControlName="firstName"
-      />
-      <app-input
-        label="Last name"
-        type="text"
-        placeholder="Lee"
-        autocomplete="family-name"
-        formControlName="lastName"
-      />
+  @if (registrationComplete()) {
+    <div class="register-success">
+      <div class="register-success__icon" aria-hidden="true">
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      </div>
+      <h3 class="register-success__title">Check your inbox</h3>
+      <p class="register-success__message">
+        We sent a verification link to <strong>{{ form.value.email }}</strong>. Click the link to
+        activate your account.
+      </p>
+      <button type="button" class="resend-btn" (click)="resendVerification()">
+        Resend verification email
+      </button>
+      <a routerLink="/login" class="register-back-link">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        Back to sign in
+      </a>
     </div>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="submit()" class="auth-form" novalidate>
+      @if (error()) {
+        <div class="auth-alert" role="alert">{{ error() }}</div>
+      }
 
-    <app-input
-      label="Email"
-      type="email"
-      placeholder="jordan@company.com"
-      autocomplete="email"
-      formControlName="email"
-    />
+      <div class="auth-form__row">
+        <app-input
+          label="First name"
+          type="text"
+          placeholder="Jordan"
+          autocomplete="given-name"
+          formControlName="firstName"
+        />
+        <app-input
+          label="Last name"
+          type="text"
+          placeholder="Lee"
+          autocomplete="family-name"
+          formControlName="lastName"
+        />
+      </div>
 
-    <app-input
-      label="Password"
-      type="password"
-      placeholder="••••••••"
-      autocomplete="new-password"
-      formControlName="password"
-    />
+      <app-input
+        label="Email"
+        type="email"
+        placeholder="jordan@company.com"
+        autocomplete="email"
+        formControlName="email"
+      />
 
-    <app-button type="submit" [loading]="loading()" [fullWidth]="true">
-      Create account
-    </app-button>
+      <app-input
+        label="Password"
+        type="password"
+        placeholder="••••••••"
+        autocomplete="new-password"
+        formControlName="password"
+      />
 
-    <p class="auth-footer">
-      Already have an account? <a routerLink="/login">Sign in</a>
-    </p>
-  </form>
+      <app-button type="submit" [loading]="loading()" [fullWidth]="true"> Create account </app-button>
+
+      <p class="auth-footer">Already have an account? <a routerLink="/login">Sign in</a></p>
+    </form>
+  }
 </app-auth-layout>

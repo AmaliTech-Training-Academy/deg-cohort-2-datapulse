@@ -1,0 +1,21 @@
+<div class="page">
+  <div class="page__header">
+    <h1 class="page__title">Settings</h1>
+    <p class="page__subtitle">Manage organization-wide configuration</p>
+  </div>
+
+  <div class="settings-layout">
+    <nav class="settings-nav">
+      @for (item of navItems; track item.route) {
+        <a
+          [routerLink]="item.route"
+          routerLinkActive="settings-nav__item--active"
+          class="settings-nav__item"
+        >{{ item.label }}</a>
+      }
+    </nav>
+    <div class="settings-content">
+      <router-outlet />
+    </div>
+  </div>
+</div>

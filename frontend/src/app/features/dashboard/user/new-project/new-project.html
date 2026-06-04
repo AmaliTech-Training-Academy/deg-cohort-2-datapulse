@@ -1,0 +1,44 @@
+<div class="wizard">
+  <nav class="breadcrumb">
+    <a [routerLink]="['/dashboard/projects']" style="color: var(--color-text-secondary);">Projects</a>
+    <span style="color: var(--color-text-muted);"> › </span>
+    <span>New project</span>
+  </nav>
+
+  <div class="wizard__steps">
+    <div class="step-indicator" [class.step-indicator--done]="currentStep() > 1" [class.step-indicator--active]="currentStep() === 1">
+      <span class="step-indicator__num">
+        @if (currentStep() > 1) {
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        } @else { 1 }
+      </span>
+      <span class="step-indicator__label">Upload dataset</span>
+    </div>
+    <div class="step-connector" [class.step-connector--done]="currentStep() > 1"></div>
+    <div class="step-indicator" [class.step-indicator--done]="currentStep() > 2" [class.step-indicator--active]="currentStep() === 2">
+      <span class="step-indicator__num">
+        @if (currentStep() > 2) {
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        } @else { 2 }
+      </span>
+      <span class="step-indicator__label">Review rules</span>
+    </div>
+    <div class="step-connector" [class.step-connector--done]="currentStep() > 2"></div>
+    <div class="step-indicator" [class.step-indicator--active]="currentStep() === 3">
+      <span class="step-indicator__num">3</span>
+      <span class="step-indicator__label">Run checks</span>
+    </div>
+  </div>
+
+  @switch (currentStep()) {
+    @case (1) {
+      <app-step-upload (continue)="onUploadContinue($event)" />
+    }
+    @case (2) {
+      <app-step-rules [columns]="columns()" [rules]="rules()" (back)="onBack()" (runChecks)="onRunChecks($event)" />
+    }
+    @case (3) {
+      <app-step-running [progress]="progress()" [rules]="rules()" [projectId]="projectId()" (createProject)="onCreateProject()" (back)="onBack()" />
+    }
+  }
+</div>

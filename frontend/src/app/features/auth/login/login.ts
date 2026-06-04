@@ -27,6 +27,10 @@ export class LoginComponent {
     password: ['', Validators.required],
   });
 
+  get emailNotVerified(): boolean {
+    return (this.error() ?? '').toLowerCase().includes('verif');
+  }
+
   submit(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -34,5 +38,12 @@ export class LoginComponent {
     }
     const { email, password } = this.form.getRawValue();
     this.store.dispatch(AuthActions.login({ email: email!, password: password! }));
+  }
+
+  resendVerification(): void {
+    const email = this.form.getRawValue().email;
+    if (email) {
+      this.store.dispatch(AuthActions.resendVerification({ email }));
+    }
   }
 }
