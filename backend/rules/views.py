@@ -128,14 +128,12 @@ class RuleListCreateView(APIView):
 
         # ── Dataset-level summary — all findings, never filtered ──────────────
         # Fetch all RuleFindings for rules belonging to this dataset.
-        all_findings = RuleFinding.objects.filter(
-            rule__dataset=dataset
-        ).select_related("rule")
+        all_findings = RuleFinding.objects.filter(rule__dataset=dataset).select_related(
+            "rule"
+        )
 
         total_failing_rows = sum(f.rows_failed for f in all_findings)
-        total_passing_rows = sum(
-            f.rows_checked - f.rows_failed for f in all_findings
-        )
+        total_passing_rows = sum(f.rows_checked - f.rows_failed for f in all_findings)
 
         ALL_RULE_TYPES = [
             "null_check",
