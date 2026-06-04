@@ -38,7 +38,7 @@ DatasetFileUpdateView auto-check behaviour:
 import logging
 
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -105,8 +105,47 @@ class DatasetUploadView(APIView):
         summary="Upload a CSV or JSON dataset",
         description=(
             "Upload a CSV or JSON file for validation. "
-            "File size limit: 10MB. Row limit: 50,000."
+            "File size limit: 10MB. Row limit: 50,000. "
+            "Select a file via the file picker — text fields below pre-fill for reference."
         ),
+        examples=[
+            OpenApiExample(
+                name="CSV Upload",
+                summary="Upload a CSV file with title and description",
+                description=(
+                    "Select a .csv file. The file field cannot be pre-filled in Swagger — "
+                    "use the file picker. file_title and description are optional."
+                ),
+                value={
+                    "file_title": "Employee Records Q1 2026",
+                    "description": "HR employee dataset for Q1 quality validation",
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="JSON Upload",
+                summary="Upload a JSON file with title and description",
+                description=(
+                    "Select a .json file (array of objects format). "
+                    "The file field cannot be pre-filled in Swagger — use the file picker."
+                ),
+                value={
+                    "file_title": "Sales Orders JSON",
+                    "description": "Sales order data exported from ERP in JSON format",
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Minimal Upload",
+                summary="Upload without title or description",
+                description=(
+                    "Only the file is required. "
+                    "file_title defaults to the filename if omitted."
+                ),
+                value={},
+                request_only=True,
+            ),
+        ],
     )
     def post(self, request: Request) -> Response:
         serializer = DatasetUploadSerializer(data=request.data)
@@ -278,6 +317,29 @@ class DatasetDetailView(APIView):
             "At least one field must be provided. "
             "File content, columns, row_count, and file_version are not affected."
         ),
+        examples=[
+            OpenApiExample(
+                name="Update Title Only",
+                summary="Rename the dataset without changing the description",
+                value={"file_title": "Employee Records Q2 2026"},
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Update Description Only",
+                summary="Change the description without renaming the dataset",
+                value={"description": "Revised dataset — includes contractor records"},
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Update Both Fields",
+                summary="Update title and description in a single request",
+                value={
+                    "file_title": "Sales Data — Revised",
+                    "description": "Corrected sales figures after audit",
+                },
+                request_only=True,
+            ),
+        ],
     )
     def patch(self, request: Request, dataset_id: str) -> Response:
         dataset = self._get_dataset(dataset_id, request.user)
@@ -432,6 +494,30 @@ class DatasetFileUpdateView(APIView):
             "auto_check.report_id in the response can be polled at "
             "GET /api/v1/reports/<id>/ for the completed result."
         ),
+        examples=[
+            OpenApiExample(
+                name="Replace with CSV",
+                summary="Swap current file for a new CSV file",
+                description=(
+                    "Select a .csv replacement file via the file picker. "
+                    "file_title and description are unchanged. "
+                    "stale_rule_columns will list any columns dropped from the new file."
+                ),
+                value={},
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Replace with JSON",
+                summary="Swap current file for a new JSON file",
+                description=(
+                    "Select a .json replacement file (array of objects). "
+                    "The file type is re-detected from content — "
+                    "the dataset file_type field will update to 'json'."
+                ),
+                value={},
+                request_only=True,
+            ),
+        ],
     )
     def patch(self, request: Request, dataset_id: str) -> Response:
         from rest_framework.exceptions import NotFound
