@@ -106,3 +106,15 @@ export interface DetectedColumn {
   name: string;
   type: 'String' | 'Integer' | 'Date' | 'Datetime' | 'Enum' | 'Float' | 'Boolean';
 }
+
+export interface ValidationRule {
+  id: string;
+  name: string;
+  description: string;
+  type: 'not_null' | 'type_check' | 'range' | 'unique' | 'format';
+  column: string;
+  enabled: boolean;
+  status: 'passing' | 'failing';
+  failingRows?: number;
+  deprecated?: boolean;
+}

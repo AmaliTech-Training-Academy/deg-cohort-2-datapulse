@@ -1,11 +1,12 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { delay } from 'rxjs/operators';
-import { Alert, AdminUserRow, Project, QualityReport, QualityThresholds } from '../models/dashboard.models';
+import { Alert, AdminUserRow, Project, QualityReport, QualityThresholds, ValidationRule } from '../models/dashboard.models';
 import { MOCK_PROJECTS, MOCK_REPORTS } from '../mock/mock-projects';
 import { MOCK_ALERTS } from '../mock/mock-alerts';
 import { MOCK_USERS } from '../mock/mock-users';
 import { DEFAULT_THRESHOLDS } from '../mock/mock-settings';
+import { MOCK_DATASET_COLUMNS, MOCK_VALIDATION_RULES } from '../mock/mock-validation-rules';
 
 @Injectable({ providedIn: 'root' })
 export class MockDataService {
@@ -40,6 +41,14 @@ export class MockDataService {
   saveSettings(settings: QualityThresholds): Observable<void> {
     Object.assign(DEFAULT_THRESHOLDS, settings);
     return of(undefined).pipe(delay(400));
+  }
+
+  getValidationRules(datasetId: string): Observable<ValidationRule[]> {
+    return of([...(MOCK_VALIDATION_RULES[datasetId] ?? [])]).pipe(delay(100));
+  }
+
+  getDatasetColumns(datasetId: string): Observable<string[]> {
+    return of(MOCK_DATASET_COLUMNS[datasetId] ?? []).pipe(delay(100));
   }
 
   getPlatformStats() {
