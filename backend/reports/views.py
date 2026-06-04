@@ -544,9 +544,7 @@ class DashboardView(APIView):
 
                 cf_date = date_type.fromisoformat(created_from)
                 all_blocks = [
-                    b
-                    for b in all_blocks
-                    if b["dataset"].created_at.date() >= cf_date
+                    b for b in all_blocks if b["dataset"].created_at.date() >= cf_date
                 ]
             except ValueError:
                 raise ValidationError(
@@ -561,9 +559,7 @@ class DashboardView(APIView):
 
                 ct_date = date_type.fromisoformat(created_to)
                 all_blocks = [
-                    b
-                    for b in all_blocks
-                    if b["dataset"].created_at.date() <= ct_date
+                    b for b in all_blocks if b["dataset"].created_at.date() <= ct_date
                 ]
             except ValueError:
                 raise ValidationError(

@@ -248,9 +248,7 @@ class TestAutoCheckReport:
 
 @pytest.mark.django_db
 class TestFileReplaceUnaffected:
-    def test_file_version_incremented_regardless_of_rules(
-        self, auth_client, uploaded
-    ):
+    def test_file_version_incremented_regardless_of_rules(self, auth_client, uploaded):
         resp = auth_client.patch(
             file_update_url(uploaded["id"]),
             {"file": csv_file(REPLACEMENT_CSV, "new.csv")},

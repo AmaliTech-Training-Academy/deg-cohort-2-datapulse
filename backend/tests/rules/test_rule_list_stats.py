@@ -41,9 +41,7 @@ def run_check_url(dataset_id):
 @pytest.fixture
 def uploaded(auth_client, settings, tmp_path):
     settings.MEDIA_ROOT = str(tmp_path)
-    resp = auth_client.post(
-        UPLOAD_URL, {"file": csv_file()}, format="multipart"
-    )
+    resp = auth_client.post(UPLOAD_URL, {"file": csv_file()}, format="multipart")
     assert resp.status_code == 201
     return resp.json()
 
@@ -145,9 +143,7 @@ class TestAfterRun:
         # 2 rules × 3 rows each = 6 total row-checks, all passing
         assert resp.json()["total_passing_rows"] == 6
 
-    def test_rule_type_scores_populated_for_checked_types(
-        self, auth_client, with_run
-    ):
+    def test_rule_type_scores_populated_for_checked_types(self, auth_client, with_run):
         resp = auth_client.get(rules_url(with_run["id"]))
         scores = resp.json()["rule_type_scores"]
         # null_check and uniqueness_check were run → must have scores
@@ -167,16 +163,12 @@ class TestAfterRun:
         assert scores["null_check"] == 100
         assert scores["uniqueness_check"] == 100
 
-    def test_per_rule_last_failing_rows_zero_on_clean(
-        self, auth_client, with_run
-    ):
+    def test_per_rule_last_failing_rows_zero_on_clean(self, auth_client, with_run):
         resp = auth_client.get(rules_url(with_run["id"]))
         for rule in resp.json()["results"]:
             assert rule["last_failing_rows"] == 0
 
-    def test_per_rule_last_passing_rows_equals_row_count(
-        self, auth_client, with_run
-    ):
+    def test_per_rule_last_passing_rows_equals_row_count(self, auth_client, with_run):
         resp = auth_client.get(rules_url(with_run["id"]))
         for rule in resp.json()["results"]:
             # VALID_CSV has 3 rows; all pass on clean data
@@ -208,9 +200,7 @@ class TestSummaryUnaffectedByFilters:
         assert filtered["total_passing_rows"] == unfiltered["total_passing_rows"]
         assert filtered["total_failing_rows"] == unfiltered["total_failing_rows"]
 
-    def test_rule_type_scores_unaffected_by_column_filter(
-        self, auth_client, with_run
-    ):
+    def test_rule_type_scores_unaffected_by_column_filter(self, auth_client, with_run):
         unfiltered = auth_client.get(rules_url(with_run["id"])).json()
         filtered = auth_client.get(
             f"{rules_url(with_run['id'])}?column_name=email"

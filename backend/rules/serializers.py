@@ -157,9 +157,7 @@ class RuleListItemSerializer(serializers.ModelSerializer):
         return finding.rows_checked - finding.rows_failed
 
     def get_average_score(self, obj) -> int | None:
-        rates = [
-            100.0 - f.failure_percentage for f in obj.findings.all()
-        ]
+        rates = [100.0 - f.failure_percentage for f in obj.findings.all()]
         if not rates:
             return None
         return round(sum(rates) / len(rates))

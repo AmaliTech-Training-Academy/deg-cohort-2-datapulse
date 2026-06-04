@@ -97,10 +97,8 @@ class RunCheckView(APIView):
         # Prefetch findings + rules so serializer computed fields don't N+1
         from reports.models import QualityReport
 
-        report = (
-            QualityReport.objects.prefetch_related("findings__rule").get(
-                id=report.id
-            )
+        report = QualityReport.objects.prefetch_related("findings__rule").get(
+            id=report.id
         )
         return Response(
             RunCheckResponseSerializer(report).data,

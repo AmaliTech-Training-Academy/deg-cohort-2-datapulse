@@ -221,7 +221,9 @@ class TestPerReportFields:
     ):
         resp = auth_client.get(reports_url(with_report["dataset"]["id"]))
         r = resp.json()["results"][0]
-        assert r["file_rows_analyzed"] == r["total_rows_passed"] + r["total_rows_failed"]
+        assert (
+            r["file_rows_analyzed"] == r["total_rows_passed"] + r["total_rows_failed"]
+        )
 
     def test_file_rows_analyzed_equals_dataset_row_count(
         self, auth_client, with_report
@@ -247,9 +249,7 @@ class TestSummaryUnaffectedByFilters:
         assert resp.json()["count"] == 0
         assert resp.json()["total_active_reports"] == 1
 
-    def test_average_score_unaffected_by_date_filter(
-        self, auth_client, with_report
-    ):
+    def test_average_score_unaffected_by_date_filter(self, auth_client, with_report):
         tomorrow = (date.today() + timedelta(days=1)).isoformat()
         resp = auth_client.get(
             f"{reports_url(with_report['dataset']['id'])}?date_from={tomorrow}"

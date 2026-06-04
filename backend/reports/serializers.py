@@ -159,10 +159,7 @@ class RunCheckResponseSerializer(serializers.ModelSerializer):
             if rt in rates:
                 rates[rt].append(100.0 - finding.failure_percentage)
 
-        return {
-            rt: round(sum(r) / len(r)) if r else None
-            for rt, r in rates.items()
-        }
+        return {rt: round(sum(r) / len(r)) if r else None for rt, r in rates.items()}
 
 
 class ReportDetailSerializer(serializers.ModelSerializer):
