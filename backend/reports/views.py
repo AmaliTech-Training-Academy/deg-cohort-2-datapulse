@@ -39,7 +39,7 @@ from datasets.models import Dataset
 from .models import QualityReport, TrendMetric
 from .serializers import (
     DashboardSerializer,
-    QualityReportSerializer,
+    ReportDetailSerializer,
     ReportListSerializer,
     TrendMetricSerializer,
 )
@@ -205,15 +205,25 @@ class ReportDetailView(APIView):
     """
     GET /api/v1/reports/<report_id>/
 
-    Returns a single quality report with all findings nested.
+    Returns a single quality report with all findings nested, enriched with:
+        dataset_file_name   — human-readable title of the file that was checked
+        rules_applied       — number of validation rules that ran
+        rows_analyzed       — total rows inspected (passed + failed)
+        rule_type_scores    — per-rule-type average pass rate (0-100):
+                              { null_check, type_check, range_check,
+                                uniqueness_check } — null when not checked
     """
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        responses={200: QualityReportSerializer},
+        responses={200: ReportDetailSerializer},
         summary="Retrieve a quality report by ID",
-        description="Returns a single quality report with all rule findings nested.",
+        description=(
+            "Returns a single quality report with all rule findings nested. "
+            "Includes dataset_file_name, rules_applied, rows_analyzed, and "
+            "per-rule-type average pass scores for all 4 rule types."
+        ),
     )
     def get(self, request: Request, report_id: str) -> Response:
         try:
@@ -223,7 +233,7 @@ class ReportDetailView(APIView):
         except QualityReport.DoesNotExist:
             raise NotFound("Report not found.")
 
-        return Response(QualityReportSerializer(report).data)
+        return Response(ReportDetailSerializer(report).data)
 
 
 class TrendView(APIView):
