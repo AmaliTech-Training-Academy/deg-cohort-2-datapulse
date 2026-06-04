@@ -152,10 +152,15 @@ class DatasetFileReplaceResponseSerializer(serializers.ModelSerializer):
     """
     Response shape for a successful file replacement.
 
-    Adds stale_rule_columns — the list of column names that existed in the
-    previous file but are absent from the new one.  Any ValidationRule
-    targeting one of these columns will no longer match a real column and
-    should be reviewed or deleted before the next run-check.
+    stale_rule_columns — column names from the old file absent from the new
+    one. Any ValidationRule targeting these should be reviewed before the
+    next run-check.
+
+    auto_check — present when the dataset had at least one rule at the time
+    of replacement. Contains:
+        report_id : UUID of the QualityReport created in the background
+        status    : "queued" immediately (the check runs asynchronously)
+    Null when no rules exist (nothing to check against).
     """
 
     stale_rule_columns = serializers.ListField(
@@ -165,6 +170,15 @@ class DatasetFileReplaceResponseSerializer(serializers.ModelSerializer):
             "Column names from the previous file that no longer exist in the "
             "new file. ValidationRules targeting these columns should be "
             "reviewed before running the next quality check."
+        ),
+    )
+    auto_check = serializers.DictField(
+        read_only=True,
+        allow_null=True,
+        help_text=(
+            "Present when at least one validation rule exists. "
+            "report_id identifies the QualityReport being generated asynchronously. "
+            "Poll GET /api/v1/reports/<report_id>/ for the completed result."
         ),
     )
 
@@ -180,6 +194,7 @@ class DatasetFileReplaceResponseSerializer(serializers.ModelSerializer):
             "columns",
             "file_version",
             "stale_rule_columns",
+            "auto_check",
             "created_at",
             "updated_at",
         ]

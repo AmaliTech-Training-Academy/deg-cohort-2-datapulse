@@ -11,6 +11,16 @@ and trend tracking are Backend Developer 2 deliverables.
 
 The checks app still owns the RunCheckView that triggers a run and writes
 to these tables — it imports from this module.
+
+QualityReport.status values:
+    healthy  — check completed, overall_score > 85
+    warning  — check completed, 70 < overall_score ≤ 85
+    failing  — check completed, overall_score ≤ 70
+
+QualityReport snapshots dataset_file_title and dataset_file_version at the
+moment the check is triggered.  This means each report permanently records
+which file title and version it was run against, even if the dataset is later
+renamed (PATCH /datasets/<id>/) or the file is replaced (PATCH /datasets/<id>/file/).
 """
 
 import uuid
@@ -21,10 +31,13 @@ from django.db import models
 class QualityReport(models.Model):
 
     class Status(models.TextChoices):
-        PENDING = "pending", "Pending"
-        RUNNING = "running", "Running"
-        COMPLETED = "completed", "Completed"
-        FAILED = "failed", "Failed"
+        HEALTHY = "healthy", "Healthy"  # score > 85
+        WARNING = "warning", "Warning"  # 70 < score ≤ 85
+        FAILING = "failing", "Failing"  # score ≤ 70
+
+    # Thresholds used by RunCheckView to derive the status from the score
+    HEALTHY_THRESHOLD = 85
+    WARNING_THRESHOLD = 70
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     dataset = models.ForeignKey(
@@ -36,13 +49,18 @@ class QualityReport(models.Model):
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.PENDING,
+        default=Status.FAILING,
     )
     overall_score = models.IntegerField(null=True, blank=True)
     total_rows_passed = models.IntegerField(null=True, blank=True)
     total_rows_failed = models.IntegerField(null=True, blank=True)
     error_message = models.TextField(blank=True)
     generated_at = models.DateTimeField(auto_now_add=True)
+    # Snapshots of the dataset file at the time the check was triggered.
+    # Stored so the report permanently records which file title and version
+    # it was run against, independent of any later renames or replacements.
+    dataset_file_title = models.CharField(max_length=255, blank=True)
+    dataset_file_version = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "quality_reports"
@@ -55,6 +73,15 @@ class QualityReport(models.Model):
 
     def __str__(self):
         return f"Report {self.id} — {self.status} (score={self.overall_score})"
+
+    @classmethod
+    def status_from_score(cls, score: int) -> str:
+        """Derive the quality status from a completed overall_score."""
+        if score > cls.HEALTHY_THRESHOLD:
+            return cls.Status.HEALTHY
+        if score > cls.WARNING_THRESHOLD:
+            return cls.Status.WARNING
+        return cls.Status.FAILING
 
 
 class RuleFinding(models.Model):

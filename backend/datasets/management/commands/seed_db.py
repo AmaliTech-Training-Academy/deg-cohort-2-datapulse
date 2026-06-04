@@ -284,7 +284,7 @@ class Command(BaseCommand):
         # 7. Save today's QualityReport
         report = QualityReport.objects.create(
             dataset=dataset,
-            status=QualityReport.Status.COMPLETED,
+            status=QualityReport.status_from_score(score.overall_score),
             overall_score=score.overall_score,
             total_rows_passed=score.total_rows_passed,
             total_rows_failed=score.total_rows_failed,
