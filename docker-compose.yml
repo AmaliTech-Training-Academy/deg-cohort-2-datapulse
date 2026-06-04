@@ -66,7 +66,8 @@ services:
     build:
       context: ./data-engineering
       dockerfile: Dockerfile
-    command: python pipeline/etl_pipeline.py
+    restart: unless-stopped
+    command: sh -c "while true; do python pipeline/etl_pipeline.py; sleep 30; done"
     env_file: .env
     environment:
       DB_HOST: db
