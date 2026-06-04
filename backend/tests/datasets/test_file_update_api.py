@@ -270,16 +270,19 @@ class TestScoreHistoryPreserved:
         # First check on original file
         auth_client.post(RUN_CHECK_URL_TPL.format(did))
 
-        # Replace file and run second check
+        # Replace file — auto-check creates a second report automatically
         auth_client.patch(
             file_update_url(did),
             {"file": csv_file(REPLACEMENT_CSV_SAME_COLS, "new.csv")},
             format="multipart",
         )
+
+        # Explicit third check on the new file
         auth_client.post(RUN_CHECK_URL_TPL.format(did))
 
         reports = auth_client.get(f"/api/v1/datasets/{did}/reports/").json()
-        assert reports["count"] == 2
+        # 1 manual check + 1 auto-check from file replace + 1 manual check = 3
+        assert reports["count"] == 3
 
 
 # ── Auth and ownership ────────────────────────────────────────────────────────
