@@ -7,7 +7,7 @@ all request/response bodies correctly.
 
 import logging
 
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
@@ -50,6 +50,39 @@ class RegisterView(APIView):
                 description="Validation error (e.g. passwords don't match, email taken)"
             ),
         },
+        examples=[
+            OpenApiExample(
+                name="Regular User",
+                summary="Register a standard user account",
+                description=(
+                    "Creates a user with role=user. "
+                    "A verification email is sent — the account cannot log in until verified."
+                ),
+                value={
+                    "email": "alice@company.com",
+                    "first_name": "Alice",
+                    "last_name": "Mbeki",
+                    "password": "SecurePass123!",
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Admin User",
+                summary="Register an admin account",
+                description=(
+                    "Creates a user with role=admin. "
+                    "Admin accounts have elevated permissions within the platform."
+                ),
+                value={
+                    "email": "admin@company.com",
+                    "first_name": "Bob",
+                    "last_name": "Kagabo",
+                    "password": "AdminPass456!",
+                    "role": "admin",
+                },
+                request_only=True,
+            ),
+        ],
     )
     def post(self, request: Request) -> Response:
         serializer = RegisterSerializer(data=request.data)
