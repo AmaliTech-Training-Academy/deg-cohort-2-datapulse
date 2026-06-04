@@ -177,7 +177,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     environment:
       name: staging
-      url: http://${{ secrets.STAGING_EC2_HOST }}
+      url: http://${{ vars.STAGING_EC2_HOST }}
     steps:
       - name: Deploy to staging
         uses: appleboy/ssh-action@v1
