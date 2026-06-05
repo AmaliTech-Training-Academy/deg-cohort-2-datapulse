@@ -25,6 +25,10 @@ import { projectCreationReducer } from './features/dashboard/store/project-creat
 import * as projectCreationEffects from './features/dashboard/store/project-creation/project-creation.effects';
 import { validationRulesReducer } from './features/dashboard/store/validation-rules/validation-rules.reducer';
 import * as validationRulesEffects from './features/dashboard/store/validation-rules/validation-rules.effects';
+import { adminProjectsReducer } from './features/dashboard/store/admin-projects/admin-projects.reducer';
+import * as adminProjectsEffects from './features/dashboard/store/admin-projects/admin-projects.effects';
+import { adminUsersReducer } from './features/dashboard/store/admin-users/admin-users.reducer';
+import * as adminUsersEffects from './features/dashboard/store/admin-users/admin-users.effects';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -41,6 +45,8 @@ export const appConfig: ApplicationConfig = {
       reportDetail: reportDetailReducer,
       projectCreation: projectCreationReducer,
       validationRules: validationRulesReducer,
+      adminProjects: adminProjectsReducer,
+      adminUsers: adminUsersReducer,
     }),
     provideEffects(
       authEffects,
@@ -51,6 +57,8 @@ export const appConfig: ApplicationConfig = {
       reportDetailEffects,
       projectCreationEffects,
       validationRulesEffects,
+      adminProjectsEffects,
+      adminUsersEffects,
     ),
     ...(environment.production ? [] : [provideStoreDevtools({ maxAge: 25 })]),
   ],

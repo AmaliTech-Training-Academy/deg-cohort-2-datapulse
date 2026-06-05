@@ -6,23 +6,12 @@
     </div>
     <div class="header-actions">
       <div class="search-box">
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="search-icon"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
         <input
           type="text"
-          placeholder="Search users..."
+          placeholder="Search users…"
           class="search-input"
           (input)="onSearch($event)"
         />
@@ -31,85 +20,115 @@
   </div>
 
   <div class="stats-grid">
-    <app-stat-card label="Total Users" [value]="stats().total" subtitle="+5 this month" />
+    <app-stat-card label="Total Users" [value]="stats().total" subtitle="registered accounts" />
     <app-stat-card label="Admins" [value]="stats().admins" subtitle="full access" />
-    <app-stat-card
-      label="Active"
-      [value]="stats().active"
-      subtitle="last 30 days"
-      valueClass="value--success"
-    />
-    <app-stat-card
-      label="Pending Invites"
-      [value]="stats().pendingInvites"
-      subtitle="awaiting sign-up"
-      valueClass="value--warning"
-    />
+    <app-stat-card label="Active" [value]="stats().active" subtitle="email verified" valueClass="value--success" />
+    <app-stat-card label="Unverified" [value]="stats().unverified" subtitle="awaiting email verify" valueClass="value--warning" />
   </div>
 
   <div class="table-card">
     <div class="table-header">
       <h2 class="table-title">All members</h2>
-      <p class="table-subtitle">{{ filteredUsers().length }} of {{ stats().total }} shown</p>
+      <div class="role-tabs">
+        <button class="filter-tab" [class.filter-tab--active]="roleFilter() === 'all'" (click)="setRoleFilter('all')" type="button">All</button>
+        <button class="filter-tab" [class.filter-tab--active]="roleFilter() === 'admin'" (click)="setRoleFilter('admin')" type="button">Admins</button>
+        <button class="filter-tab" [class.filter-tab--active]="roleFilter() === 'user'" (click)="setRoleFilter('user')" type="button">Users</button>
+      </div>
     </div>
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>MEMBER</th>
-          <th>ROLE</th>
-          <th>PROJECTS</th>
-          <th>STATUS</th>
-          <th>LAST ACTIVE</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (user of filteredUsers(); track user.id) {
+
+    @if (loading()) {
+      <div class="table-loading">Loading users…</div>
+    } @else if (error()) {
+      <div class="table-error">{{ error() }}</div>
+    } @else {
+      <table class="data-table">
+        <thead>
           <tr>
-            <td>
-              <div class="user-cell">
-                <div class="user-avatar">{{ userInitials(user.name) }}</div>
-                <div>
-                  <div class="user-name">{{ user.name }}</div>
-                  <div class="user-email">{{ user.email }}</div>
+            <th>MEMBER</th>
+            <th>ROLE</th>
+            <th>DATASETS</th>
+            <th>STATUS</th>
+            <th>JOINED</th>
+            <th>LAST LOGIN</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of pagedUsers(); track user.id) {
+            <tr>
+              <td>
+                <div class="user-cell">
+                  <div class="user-avatar">{{ userInitials(user.fullName) }}</div>
+                  <div>
+                    <div class="user-name">{{ user.fullName }}</div>
+                    <div class="user-email">{{ user.email }}</div>
+                  </div>
                 </div>
-              </div>
-            </td>
-            <td>
-              <app-badge
-                [label]="user.role === 'admin' ? 'Admin' : 'User'"
-                [variant]="roleBadge(user.role)"
-                [dot]="false"
-              />
-            </td>
-            <td class="td-center">{{ user.projectCount }}</td>
-            <td>
-              <app-badge [label]="statusLabel(user.status)" [variant]="statusBadge(user.status)" />
-            </td>
-            <td class="td-muted">{{ relativeTime(user.lastActiveAt) }}</td>
-            <td>
-              <button class="menu-btn" type="button" aria-label="User actions">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <circle cx="12" cy="5" r="1" />
-                  <circle cx="12" cy="12" r="1" />
-                  <circle cx="12" cy="19" r="1" />
-                </svg>
-              </button>
-            </td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="6" class="empty-row">No users match your search.</td>
-          </tr>
-        }
-      </tbody>
-    </table>
+              </td>
+              <td>
+                <app-badge
+                  [label]="user.role === 'admin' ? 'Admin' : 'User'"
+                  [variant]="roleBadge(user.role)"
+                  [dot]="false"
+                />
+              </td>
+              <td class="td-center">{{ user.datasetsCount }}</td>
+              <td>
+                <app-badge [label]="statusLabel(user)" [variant]="statusVariant(user)" />
+              </td>
+              <td class="td-muted">{{ relativeTime(user.createdAt) }}</td>
+              <td class="td-muted">{{ relativeTime(user.lastLogin) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty-row">No users match your search.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (filteredUsers().length > 0) {
+        <div class="pagination">
+          <span class="pagination__info">
+            {{ pageInfo().from }}–{{ pageInfo().to }} of {{ pageInfo().total }}
+          </span>
+          <div class="pagination__controls">
+            <button
+              class="page-btn"
+              [disabled]="currentPage() === 1"
+              (click)="prevPage()"
+              type="button"
+              aria-label="Previous page"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            @if (pageNumbers()[0] > 1) {
+              <button class="page-btn" (click)="goToPage(1)" type="button">1</button>
+              @if (pageNumbers()[0] > 2) { <span class="page-ellipsis">…</span> }
+            }
+            @for (p of pageNumbers(); track p) {
+              <button
+                class="page-btn"
+                [class.page-btn--active]="p === currentPage()"
+                (click)="goToPage(p)"
+                type="button"
+              >{{ p }}</button>
+            }
+            @if (pageNumbers()[pageNumbers().length - 1] < totalPages()) {
+              @if (pageNumbers()[pageNumbers().length - 1] < totalPages() - 1) { <span class="page-ellipsis">…</span> }
+              <button class="page-btn" (click)="goToPage(totalPages())" type="button">{{ totalPages() }}</button>
+            }
+            <button
+              class="page-btn"
+              [disabled]="currentPage() === totalPages()"
+              (click)="nextPage()"
+              type="button"
+              aria-label="Next page"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+      }
+    }
   </div>
 </div>
