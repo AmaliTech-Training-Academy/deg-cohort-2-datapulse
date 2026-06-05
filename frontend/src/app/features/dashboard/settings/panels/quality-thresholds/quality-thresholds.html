@@ -1,0 +1,41 @@
+<div class="panel">
+  <div class="panel__header">
+    <h2 class="panel__title">Quality thresholds</h2>
+    <p class="panel__subtitle">Define the score bands used across every project</p>
+    <div class="threshold-badges">
+      <app-badge [label]="'Healthy ≥ ' + healthyMin" variant="success" />
+      <app-badge [label]="'Warning ' + warningMin + '–' + (healthyMin - 1)" variant="warning" />
+      <app-badge [label]="'Failing < ' + warningMin" variant="danger" />
+    </div>
+  </div>
+
+  <div class="form-grid">
+    <div class="form-field">
+      <label class="form-label" for="healthy-min">HEALTHY MINIMUM</label>
+      <input id="healthy-min" class="form-input" type="number" [(ngModel)]="healthyMin" min="0" max="100" />
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="warning-min">WARNING MINIMUM</label>
+      <input id="warning-min" class="form-input" type="number" [(ngModel)]="warningMin" min="0" max="100" />
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="auto-pause">AUTO-PAUSE AFTER N FAILURES</label>
+      <input id="auto-pause" class="form-input" type="number" [(ngModel)]="autoPause" min="1" max="100" />
+    </div>
+    <div class="form-field">
+      <label class="form-label" for="slow-run-mins">SLOW-RUN THRESHOLD</label>
+      <div class="time-input">
+        <input id="slow-run-mins" class="form-input form-input--sm" type="number" [(ngModel)]="slowRunMins" min="0" />
+        <span class="time-sep">m</span>
+        <input id="slow-run-secs" class="form-input form-input--sm" type="number" [(ngModel)]="slowRunSecs" min="0" max="59" />
+        <span class="time-sep">s</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn-primary" type="button" [disabled]="saving()" (click)="onSave()">
+      @if (saving()) { Saving… } @else if (saved()) { ✓ Saved } @else { Save changes }
+    </button>
+  </div>
+</div>

@@ -1,0 +1,11 @@
+.panel { background: var(--color-surface); border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.panel__header { }
+.panel__title { font-size: 16px; font-weight: 600; color: var(--color-danger); margin-bottom: 4px; }
+.panel__subtitle { font-size: 13px; color: var(--color-text-muted); }
+.danger-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.danger-item__title { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+.danger-item__desc { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; max-width: 400px; }
+.btn-danger { padding: 8px 16px; border: none; background: var(--color-danger); color: white; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.btn-danger:hover { background: var(--color-danger-hover); }
+.btn-outline { padding: 8px 16px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text-secondary); border-radius: var(--radius-md); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.btn-outline:hover { background: var(--color-surface-raised); }

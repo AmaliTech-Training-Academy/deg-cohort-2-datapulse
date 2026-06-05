@@ -1,0 +1,43 @@
+<aside class="sidebar">
+  <div class="sidebar__brand">
+    <svg width="28" height="28" viewBox="0 0 34 34" fill="none" class="sidebar__logo" aria-hidden="true">
+      <rect width="34" height="34" rx="9" fill="#2563EB" />
+      <path
+        d="M5 17h4.5l2.5-7 5 14 3-9 2.5 5 2-3H29"
+        stroke="white"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="none"
+      />
+    </svg>
+    <span class="sidebar__brand-name">DataPulse</span>
+  </div>
+
+  <nav class="sidebar__nav">
+    @for (item of navItems(); track item.route) {
+      <a
+        [routerLink]="item.route"
+        routerLinkActive="sidebar__nav-item--active"
+        [routerLinkActiveOptions]="{ exact: item.route === '/dashboard/projects' ? false : false }"
+        class="sidebar__nav-item"
+        [attr.aria-label]="item.label"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="sidebar__nav-icon"
+        >
+          <path [attr.d]="item.icon" />
+        </svg>
+        <span class="sidebar__nav-label">{{ item.label }}</span>
+      </a>
+    }
+  </nav>
+</aside>

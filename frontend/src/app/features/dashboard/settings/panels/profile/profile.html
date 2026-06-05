@@ -1,0 +1,46 @@
+@if (user(); as u) {
+  <div class="panel">
+    <div class="panel__header">
+      <h2 class="panel__title">Profile</h2>
+      <p class="panel__subtitle">Your account information</p>
+    </div>
+
+    <div class="profile-hero">
+      <div class="profile-avatar">{{ initials() }}</div>
+      <div class="profile-hero__info">
+        <span class="profile-hero__name">{{ fullName() }}</span>
+        <span class="role-badge role-badge--{{ u.role }}">{{ roleLabel() }}</span>
+      </div>
+    </div>
+
+    <div class="profile-fields">
+      <div class="field">
+        <span class="field__label">FIRST NAME</span>
+        <span class="field__value">{{ u.first_name }}</span>
+      </div>
+
+      <div class="field">
+        <span class="field__label">LAST NAME</span>
+        <span class="field__value">{{ u.last_name }}</span>
+      </div>
+
+      <div class="field">
+        <span class="field__label">EMAIL ADDRESS</span>
+        <div class="field__value-row">
+          <span class="field__value">{{ u.email }}</span>
+          @if (u.is_email_verified) {
+            <span class="status-badge status-badge--verified">Verified</span>
+          } @else {
+            <span class="status-badge status-badge--unverified">Unverified</span>
+          }
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field__label">MEMBER SINCE</span>
+        <span class="field__value">{{ memberSince() }}</span>
+      </div>
+
+    </div>
+  </div>
+}

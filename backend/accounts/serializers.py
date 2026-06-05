@@ -135,6 +135,32 @@ class ForgotPasswordSerializer(serializers.Serializer):
         return getattr(self, "_user", None)
 
 
+class UserListSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer for GET /api/v1/auth/users/ (admin only).
+    Uses real model field names — the frontend maps them for display.
+    datasets_count is annotated by the view queryset.
+    """
+
+    datasets_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "is_active",
+            "last_login",
+            "created_at",
+            "is_email_verified",
+            "datasets_count",
+        ]
+        read_only_fields = fields
+
+
 class ResetPasswordSerializer(serializers.Serializer):
     uid = serializers.UUIDField()
     token = serializers.CharField()

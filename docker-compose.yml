@@ -44,18 +44,54 @@ services:
       retries: 6
       start_period: 20s
 
+  analytics_db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ANALYTICS_DB_NAME:-datapulse_analytics}
+      POSTGRES_USER: ${ANALYTICS_DB_USER:-analytics_user}
+      POSTGRES_PASSWORD: ${ANALYTICS_DB_PASSWORD:-analytics_pass}
+    ports:
+      - "${ANALYTICS_DB_EXTERNAL_PORT:-5437}:5432"
+    volumes:
+      - analytics_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_DB_USER:-analytics_user} -d ${ANALYTICS_DB_NAME:-datapulse_analytics}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   pipeline:
     profiles: [pipeline]
     build:
       context: ./data-engineering
       dockerfile: Dockerfile
-    command: python pipeline/etl_pipeline.py
+    restart: unless-stopped
+    command: sh -c "while true; do python pipeline/etl_pipeline.py; sleep 30; done"
     env_file: .env
     environment:
       DB_HOST: db
       DB_PORT: "5432"
+      SOURCE_DB_URL: postgresql://${DB_USER:-datapulse_user}:${DB_PASSWORD:-datapulse_pass}@db:5432/${DB_NAME:-datapulse}
+      TARGET_DB_URL: postgresql://${ANALYTICS_DB_USER:-analytics_user}:${ANALYTICS_DB_PASSWORD:-analytics_pass}@analytics_db:5432/${ANALYTICS_DB_NAME:-datapulse_analytics}
     depends_on:
       db:
+        condition: service_healthy
+      analytics_db:
+        condition: service_healthy
+
+  streamlit:
+    profiles: [streamlit]
+    build:
+      context: ./data-engineering
+      dockerfile: Dockerfile
+    command: python -m streamlit run dashboards/quality_dashboard.py --server.port=8501 --server.address=0.0.0.0 --server.baseUrlPath=/analytics
+    ports:
+      - "${STREAMLIT_PORT:-8501}:8501"
+    environment:
+      TARGET_DB_URL: postgresql://${ANALYTICS_DB_USER:-analytics_user}:${ANALYTICS_DB_PASSWORD:-analytics_pass}@analytics_db:5432/${ANALYTICS_DB_NAME:-datapulse_analytics}
+    depends_on:
+      analytics_db:
         condition: service_healthy
 
   frontend:
@@ -69,10 +105,11 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - API_URL=http://localhost:8000
+      - API_URL=http://backend:8000
     depends_on:
       - backend
 
 volumes:
   postgres_data:
   media_data:
+  analytics_data:

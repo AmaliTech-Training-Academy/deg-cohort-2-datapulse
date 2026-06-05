@@ -1,0 +1,587 @@
+@if (loading()) {
+  <div class="loading">Loading project…</div>
+} @else if (project(); as p) {
+  @if (showManageRules()) {
+    <div class="page">
+      <nav class="breadcrumb">
+        <a [routerLink]="projectsLink()">Projects</a>
+        <span class="breadcrumb__sep">›</span>
+        <button class="breadcrumb__back" type="button" (click)="showManageRules.set(false)">
+          {{ p.name }}
+        </button>
+        <span class="breadcrumb__sep">›</span>
+        <span>Validation rules</span>
+      </nav>
+
+      <div class="page__header">
+        <div>
+          <h1 class="page__title">Validation rules</h1>
+          <p class="page__subtitle">Define the checks that run on every upload</p>
+        </div>
+        <div class="header-actions">
+          <select
+            class="dataset-select"
+            [value]="selectedDatasetId()"
+            (change)="selectDataset($any($event.target).value)"
+          >
+            @for (dataset of p.datasets; track dataset.id) {
+              <option [value]="dataset.id">{{ dataset.name }}</option>
+            }
+          </select>
+          <button
+            class="btn-primary"
+            type="button"
+            [disabled]="!hasChanges() || runCheckLoading()"
+            (click)="reRunChecks()"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+            </svg>
+            {{ runCheckLoading() ? 'Running…' : 'Re-run checks' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="rules-card__header">
+          <h2 class="card__title">Rules for {{ selectedDataset()?.name }}</h2>
+          <p class="card__subtitle">
+            {{ validationRules().length }} rules · {{ activeRuleCount() }} active
+          </p>
+        </div>
+
+        @if (rulesLoading()) {
+          <p class="rules-loading">Loading rules…</p>
+        }
+        <app-step-error [message]="runCheckError()" />
+        <app-step-error [message]="deleteError()" />
+
+        <div class="rules-list">
+          @for (rule of validationRules(); track rule.id) {
+            @if (editingRuleId() === rule.id) {
+              @if (editDraft(); as draft) {
+                <div class="rule-row rule-row--editing">
+                  <div class="rule-icon rule-icon--{{ draft.type }}">
+                    @if (draft.type === 'not_null' || draft.type === 'format') {
+                      <span>#</span>
+                    } @else if (draft.type === 'type_check') {
+                      <span>T</span>
+                    } @else if (draft.type === 'range') {
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    } @else if (draft.type === 'unique') {
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    }
+                  </div>
+
+                  <div class="rule-edit-fields">
+                    <div class="rule-edit-top">
+                      <input
+                        class="rule-edit-input"
+                        type="text"
+                        placeholder="Rule name"
+                        [value]="draft.name"
+                        (input)="patchDraft('name', $event)"
+                      />
+                      <select
+                        class="rule-edit-select"
+                        [value]="draft.type"
+                        (change)="patchDraft('type', $event)"
+                      >
+                        <option value="not_null">Not null</option>
+                        <option value="type_check">Type check</option>
+                        <option value="range">Range</option>
+                        <option value="unique">Unique</option>
+                        <option value="format">Format</option>
+                      </select>
+                      <select
+                        class="rule-edit-select"
+                        [value]="draft.column"
+                        (change)="patchDraft('column', $event)"
+                      >
+                        @for (col of datasetColumns(); track col) {
+                          <option [value]="col">{{ col }}</option>
+                        }
+                      </select>
+                    </div>
+                    <input
+                      class="rule-edit-input rule-edit-input--desc"
+                      type="text"
+                      placeholder="Description"
+                      [value]="draft.description"
+                      (input)="patchDraft('description', $event)"
+                    />
+                  </div>
+
+                  <div class="rule-edit-btns">
+                    <button class="btn-primary btn--sm" type="button" (click)="saveEdit()">
+                      Save
+                    </button>
+                    <button class="btn-secondary btn--sm" type="button" (click)="cancelEdit()">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              }
+            } @else {
+              <div class="rule-row" [class.rule-row--disabled]="!rule.enabled">
+                <div class="rule-icon rule-icon--{{ rule.type }}">
+                  @if (rule.type === 'not_null' || rule.type === 'format') {
+                    <span>#</span>
+                  } @else if (rule.type === 'type_check') {
+                    <span>T</span>
+                  } @else if (rule.type === 'range') {
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  } @else if (rule.type === 'unique') {
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  }
+                </div>
+
+                <div class="rule-info">
+                  <span class="rule-name">{{ rule.name }}</span>
+                  <span class="rule-desc">{{ rule.description }}</span>
+                </div>
+
+                <div class="rule-status">
+                  @if (rule.status === 'failing' && rule.failingRows) {
+                    <span class="rule-badge--failing">{{ rule.failingRows }} failing</span>
+                  } @else {
+                    <span class="rule-status--passing">● passing</span>
+                  }
+                </div>
+
+                <div class="rule-actions">
+                  <button
+                    class="rule-action-btn"
+                    type="button"
+                    title="Edit rule"
+                    (click)="startEdit(rule)"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                  <button
+                    class="rule-action-btn rule-action-btn--danger"
+                    type="button"
+                    title="Delete rule"
+                    (click)="requestDelete(rule.id)"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                      <path d="M10 11v6M14 11v6" />
+                      <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                    </svg>
+                  </button>
+                </div>
+
+                <label class="toggle">
+                  <input type="checkbox" [checked]="rule.enabled" (change)="toggleRule(rule.id)" />
+                  <span class="toggle__slider"></span>
+                </label>
+              </div>
+            }
+          }
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card__title" style="margin-bottom: 4px">Add a rule</h2>
+        <p class="card__subtitle" style="margin-bottom: 16px">
+          Build a new validation check for this dataset
+        </p>
+        <app-step-error [message]="addRuleError()" />
+        <div class="add-rule-form">
+          <div class="add-rule-form__group">
+            <label class="add-rule-form__label" for="rule-type">TYPE</label>
+            <select
+              id="rule-type"
+              class="add-rule-form__select"
+              [value]="newRuleType()"
+              (change)="newRuleType.set($any($event.target).value)"
+            >
+              <option value="not_null">Not null</option>
+              <option value="type_check">Type check</option>
+              <option value="range">Range</option>
+              <option value="unique">Unique</option>
+              <option value="format">Format</option>
+            </select>
+          </div>
+          <div class="add-rule-form__group">
+            <label class="add-rule-form__label" for="rule-column">COLUMN</label>
+            <select
+              id="rule-column"
+              class="add-rule-form__select"
+              [value]="newRuleColumn()"
+              (change)="newRuleColumn.set($any($event.target).value)"
+            >
+              @for (col of datasetColumns(); track col) {
+                <option [value]="col">{{ col }}</option>
+              }
+            </select>
+          </div>
+          <div class="add-rule-form__group add-rule-form__group--grow">
+            <label class="add-rule-form__label" for="rule-params">PARAMS</label>
+            <input
+              id="rule-params"
+              class="add-rule-form__input"
+              type="text"
+              [value]="newRuleParams()"
+              (input)="newRuleParams.set($any($event.target).value)"
+              placeholder="e.g. min: 18, max: 120"
+            />
+          </div>
+          <button
+            class="btn-primary add-rule-form__btn"
+            type="button"
+            [disabled]="addRuleLoading()"
+            (click)="addRule()"
+          >
+            {{ addRuleLoading() ? 'Adding…' : '+ Add' }}
+          </button>
+        </div>
+      </div>
+
+      <app-confirmation-modal
+        [isOpen]="deleteTargetId() !== null"
+        title="Delete rule"
+        [message]="
+          'Delete \'' +
+          (deleteTargetRule()?.name ?? '') +
+          '\'? This check will no longer run on new uploads.'
+        "
+        confirmLabel="Delete"
+        variant="danger"
+        (confirmed)="confirmDelete()"
+        (cancelled)="cancelDelete()"
+      />
+    </div>
+  } @else {
+    <div class="page">
+      <nav class="breadcrumb">
+        <a [routerLink]="projectsLink()">Projects</a>
+        <span class="breadcrumb__sep">›</span>
+        <span>{{ p.name }}</span>
+      </nav>
+
+      <div class="page__header">
+        <div>
+          <h1 class="page__title">{{ p.name }}</h1>
+          <p class="page__subtitle">
+            {{ p.datasetCount }} datasets · {{ p.activeRulesCount }} active rules · last run
+            {{ relativeTime(p.lastRunAt) }}
+          </p>
+        </div>
+        @if (role() !== 'admin') {
+          <div class="header-actions">
+            <button class="btn-secondary" type="button" (click)="openUploadModal()">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Upload version
+            </button>
+          </div>
+        }
+      </div>
+
+      <div class="stats-grid">
+        <app-stat-card
+          label="Avg Score"
+          [value]="p.avgScore"
+          subtitle=""
+          [valueClass]="scoreClass(p.avgScore)"
+        />
+        <app-stat-card label="Datasets" [value]="p.datasetCount" subtitle="on latest version" />
+        <app-stat-card
+          label="Active Rules"
+          [value]="p.activeRulesCount"
+          [subtitle]="'across ' + p.datasetCount + ' datasets'"
+        />
+        <app-stat-card
+          label="Failing Rows"
+          [value]="totalFailingRows().toLocaleString()"
+          subtitle="0.4% of total"
+          valueClass="value--danger"
+        />
+      </div>
+
+      <div class="card">
+        <div class="card__header">
+          <h2 class="card__title">Reports</h2>
+          <p class="card__subtitle">Latest version of each file in this project</p>
+          <div style="flex: 1"></div>
+          <button class="btn-secondary" type="button" (click)="openManageRules()">
+            Manage rules
+          </button>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>FILE</th>
+              <th>VERSION</th>
+              <th>ROWS</th>
+              <th>PASSED</th>
+              <th>FAILED</th>
+              <th>SCORE</th>
+              <th>STATUS</th>
+              <th>UPLOADED</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (dataset of p.datasets; track dataset.id) {
+              <tr
+                class="dataset-row"
+                [routerLink]="['/dashboard/projects', p.id, 'reports', dataset.id]"
+              >
+                <td>
+                  <div class="file-cell">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="file-icon"
+                    >
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    {{ dataset.name }}
+                  </div>
+                </td>
+                <td>
+                  <span class="version-badge">{{ dataset.version }}</span>
+                </td>
+                <td class="td-muted">{{ dataset.rows.toLocaleString() }}</td>
+                <td class="td-success">{{ dataset.passingRows.toLocaleString() }}</td>
+                <td class="td-danger">{{ dataset.failingRows.toLocaleString() }}</td>
+                <td>
+                  <span [class]="'score ' + scoreClass(dataset.score)">{{ dataset.score }}</span>
+                </td>
+                <td>
+                  <app-badge
+                    [label]="statusLabel(dataset.status)"
+                    [variant]="statusVariant(dataset.status)"
+                  />
+                </td>
+                <td class="td-muted">{{ relativeTime(dataset.uploadedAt) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2 class="card__title" style="margin-bottom: 4px">Score trend</h2>
+        <p class="card__subtitle" style="margin-bottom: 16px">
+          Average quality score across versions of {{ p.datasets[0]?.name ?? 'datasets' }}
+        </p>
+        <app-trend-chart [points]="p.scoreTrend" [height]="180" />
+      </div>
+    </div>
+  }
+} @else {
+  <div class="loading">Project not found.</div>
+}
+
+@if (showUploadModal()) {
+  <div class="upload-overlay">
+    <div class="upload-modal">
+      <div class="upload-modal__header">
+        <h2 class="upload-modal__title">Upload new version</h2>
+        <button class="upload-modal__close" type="button" (click)="closeUploadModal()">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <p class="upload-modal__subtitle">
+        Drop a new .csv or .json file to replace the current dataset version.
+      </p>
+
+      <div
+        class="upload-dropzone"
+        role="button"
+        tabindex="0"
+        [class.upload-dropzone--over]="uploadIsDragOver()"
+        (dragover)="onUploadDragOver($event)"
+        (dragleave)="onUploadDragLeave()"
+        (drop)="onUploadDrop($event)"
+        (click)="versionFileInput.click()"
+        (keydown.enter)="versionFileInput.click()"
+        (keydown.space)="versionFileInput.click()"
+        aria-label="Upload new dataset version"
+      >
+        @if (uploadFileName()) {
+          <div class="upload-dropzone__file">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--color-success)"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span class="upload-dropzone__filename">{{ uploadFileName() }}</span>
+          </div>
+        } @else {
+          <div class="upload-dropzone__content">
+            <div class="upload-dropzone__icon">
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </div>
+            <p class="upload-dropzone__text"><strong>Drop your file here, or browse</strong></p>
+            <p class="upload-dropzone__hint">
+              Supports <span class="upload-file-type">.csv</span> and
+              <span class="upload-file-type">.json</span> · 50 MB max
+            </p>
+          </div>
+        }
+        <input
+          #versionFileInput
+          type="file"
+          accept=".csv,.json"
+          style="display: none"
+          (change)="onUploadFileSelect($event)"
+        />
+      </div>
+
+      @if (uploadParseError()) {
+        <p class="upload-parse-error">{{ uploadParseError() }}</p>
+      }
+      <app-step-error [message]="uploadVersionError()" />
+
+      <div class="upload-modal__actions">
+        <button class="btn-secondary" type="button" (click)="closeUploadModal()">Cancel</button>
+        <button
+          class="btn-primary"
+          type="button"
+          [disabled]="!uploadFileName() || uploadVersionLoading()"
+          (click)="submitUploadVersion()"
+        >
+          {{ uploadVersionLoading() ? 'Uploading…' : 'Upload version' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

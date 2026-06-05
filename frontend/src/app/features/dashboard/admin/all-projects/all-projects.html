@@ -1,0 +1,194 @@
+<div class="page">
+  <div class="page__header">
+    <div>
+      <h1 class="page__title">All projects</h1>
+      <p class="page__subtitle">Every dataset across the organization, monitored continuously</p>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <app-stat-card label="Total Projects" [value]="stats().total" subtitle="across all users" />
+    <app-stat-card
+      label="Healthy"
+      [value]="stats().healthy"
+      subtitle="score ≥ 85"
+      valueClass="value--success"
+    />
+    <app-stat-card
+      label="Warning"
+      [value]="stats().warning"
+      subtitle="score 70–84"
+      valueClass="value--warning"
+    />
+    <app-stat-card
+      label="Failing"
+      [value]="stats().failing"
+      subtitle="score < 70"
+      valueClass="value--danger"
+    />
+  </div>
+
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="filter-tabs">
+        <button
+          class="filter-tab"
+          [class.filter-tab--active]="activeFilter() === 'all'"
+          (click)="setFilter('all')"
+          type="button"
+        >All <span class="tab-count">{{ tabCounts().all }}</span></button>
+        <button
+          class="filter-tab"
+          [class.filter-tab--active]="activeFilter() === 'healthy'"
+          (click)="setFilter('healthy')"
+          type="button"
+        >Healthy <span class="tab-count">{{ tabCounts().healthy }}</span></button>
+        <button
+          class="filter-tab"
+          [class.filter-tab--active]="activeFilter() === 'warning'"
+          (click)="setFilter('warning')"
+          type="button"
+        >Warning <span class="tab-count">{{ tabCounts().warning }}</span></button>
+        <button
+          class="filter-tab"
+          [class.filter-tab--active]="activeFilter() === 'failing'"
+          (click)="setFilter('failing')"
+          type="button"
+        >Failing <span class="tab-count">{{ tabCounts().failing }}</span></button>
+      </div>
+
+      <div class="toolbar-right">
+        <div class="file-type-toggle">
+          <button
+            class="toggle-btn"
+            [class.toggle-btn--active]="fileTypeFilter() === 'all'"
+            (click)="setFileType('all')"
+            type="button"
+          >All types</button>
+          <button
+            class="toggle-btn"
+            [class.toggle-btn--active]="fileTypeFilter() === 'csv'"
+            (click)="setFileType('csv')"
+            type="button"
+          >CSV</button>
+          <button
+            class="toggle-btn"
+            [class.toggle-btn--active]="fileTypeFilter() === 'json'"
+            (click)="setFileType('json')"
+            type="button"
+          >JSON</button>
+        </div>
+
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search by name or owner…"
+            class="search-input"
+            (input)="onSearch($event)"
+          />
+        </div>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="table-loading">Loading projects…</div>
+    } @else if (error()) {
+      <div class="table-error">{{ error() }}</div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>PROJECT</th>
+            <th>TYPE</th>
+            <th>OWNER</th>
+            <th>REPORTS</th>
+            <th>SCORE</th>
+            <th>STATUS</th>
+            <th>LAST RUN</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of pagedProjects(); track d.id) {
+            <tr class="row--clickable" (click)="goToProject(d.id)">
+              <td class="project-name">{{ d.name }}</td>
+              <td><span class="file-type-badge">{{ d.fileType.toUpperCase() }}</span></td>
+              <td>
+                <div class="owner-cell">
+                  <span class="owner-name">{{ d.ownerName }}</span>
+                  <span class="owner-email">{{ d.ownerEmail }}</span>
+                </div>
+              </td>
+              <td class="td-center">{{ d.reportsCount }}</td>
+              <td>
+                @if (d.reportsCount > 0) {
+                  <span [class]="'score ' + scoreClass(d.score)">{{ d.score }}</span>
+                } @else {
+                  <span class="td-muted">—</span>
+                }
+              </td>
+              <td>
+                @if (d.reportsCount > 0) {
+                  <app-badge [label]="statusLabel(d.status)" [variant]="statusVariant(d.status)" />
+                } @else {
+                  <span class="td-muted">No runs</span>
+                }
+              </td>
+              <td class="td-muted">{{ relativeTime(d.lastRunAt) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" class="empty-row">No projects match your filters.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (filteredProjects().length > 0) {
+        <div class="pagination">
+          <span class="pagination__info">
+            {{ pageInfo().from }}–{{ pageInfo().to }} of {{ pageInfo().total }}
+          </span>
+          <div class="pagination__controls">
+            <button
+              class="page-btn"
+              [disabled]="currentPage() === 1"
+              (click)="prevPage()"
+              type="button"
+              aria-label="Previous page"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            @if (pageNumbers()[0] > 1) {
+              <button class="page-btn" (click)="goToPage(1)" type="button">1</button>
+              @if (pageNumbers()[0] > 2) { <span class="page-ellipsis">…</span> }
+            }
+            @for (p of pageNumbers(); track p) {
+              <button
+                class="page-btn"
+                [class.page-btn--active]="p === currentPage()"
+                (click)="goToPage(p)"
+                type="button"
+              >{{ p }}</button>
+            }
+            @if (pageNumbers()[pageNumbers().length - 1] < totalPages()) {
+              @if (pageNumbers()[pageNumbers().length - 1] < totalPages() - 1) { <span class="page-ellipsis">…</span> }
+              <button class="page-btn" (click)="goToPage(totalPages())" type="button">{{ totalPages() }}</button>
+            }
+            <button
+              class="page-btn"
+              [disabled]="currentPage() === totalPages()"
+              (click)="nextPage()"
+              type="button"
+              aria-label="Next page"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>

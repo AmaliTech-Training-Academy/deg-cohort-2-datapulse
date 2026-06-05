@@ -1,0 +1,23 @@
+<div class="panel">
+  <div class="panel__header">
+    <h2 class="panel__title">Notifications</h2>
+    <p class="panel__subtitle">Control when and how alerts are delivered</p>
+  </div>
+  <div class="toggle-row">
+    <div><p class="toggle-label">Email on critical alerts</p><p class="toggle-desc">Fires when a dataset status drops to failing</p></div>
+    <label class="toggle"><input type="checkbox" [(ngModel)]="emailOnCritical" /><span class="toggle__track"></span></label>
+  </div>
+  <div class="toggle-row">
+    <div><p class="toggle-label">Email on warning alerts</p><p class="toggle-desc">Fires when quality degrades into warning range</p></div>
+    <label class="toggle"><input type="checkbox" [(ngModel)]="emailOnWarning" /><span class="toggle__track"></span></label>
+  </div>
+  <div class="toggle-row">
+    <div><p class="toggle-label">Daily digest email</p><p class="toggle-desc">Summary of all checks sent at 8 AM</p></div>
+    <label class="toggle"><input type="checkbox" [(ngModel)]="emailDigestDaily" /><span class="toggle__track"></span></label>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="slack-webhook">SLACK WEBHOOK URL</label>
+    <input id="slack-webhook" class="form-input" type="url" placeholder="https://hooks.slack.com/services/..." [(ngModel)]="slackWebhook" />
+  </div>
+  <button class="btn-primary" type="button">Save changes</button>
+</div>

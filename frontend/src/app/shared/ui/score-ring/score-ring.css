@@ -1,0 +1,14 @@
+.ring__arc {
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.ring__label {
+  font-size: 24px;
+  font-weight: 700;
+  fill: var(--color-text-primary);
+}
+
+.ring__sublabel {
+  font-size: 11px;
+  fill: var(--color-text-muted);
+}

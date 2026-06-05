@@ -1,0 +1,91 @@
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-datapulse}
+      POSTGRES_USER: ${DB_USER:-datapulse_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-datapulse_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-datapulse_user} -d ${DB_NAME:-datapulse}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  analytics_db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ANALYTICS_DB_NAME:-datapulse_analytics}
+      POSTGRES_USER: ${ANALYTICS_DB_USER:-analytics_user}
+      POSTGRES_PASSWORD: ${ANALYTICS_DB_PASSWORD:-analytics_pass}
+    volumes:
+      - analytics_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ANALYTICS_DB_USER:-analytics_user} -d ${ANALYTICS_DB_NAME:-datapulse_analytics}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ${ECR_REGISTRY}/datapulse-backend:latest
+    restart: unless-stopped
+    command: ./entrypoint.sh
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+    volumes:
+      - media_data:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  pipeline:
+    image: ${ECR_REGISTRY}/datapulse-pipeline:latest
+    restart: unless-stopped
+    command: sh -c "while true; do python pipeline/etl_pipeline.py; sleep 30; done"
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      SOURCE_DB_URL: postgresql://${DB_USER:-datapulse_user}:${DB_PASSWORD:-datapulse_pass}@db:5432/${DB_NAME:-datapulse}
+      TARGET_DB_URL: postgresql://${ANALYTICS_DB_USER:-analytics_user}:${ANALYTICS_DB_PASSWORD:-analytics_pass}@analytics_db:5432/${ANALYTICS_DB_NAME:-datapulse_analytics}
+    depends_on:
+      db:
+        condition: service_healthy
+      analytics_db:
+        condition: service_healthy
+
+  streamlit:
+    image: ${ECR_REGISTRY}/datapulse-pipeline:latest
+    restart: unless-stopped
+    command: python -m streamlit run dashboards/quality_dashboard.py --server.port=8501 --server.address=0.0.0.0 --server.baseUrlPath=/analytics
+    environment:
+      TARGET_DB_URL: postgresql://${ANALYTICS_DB_USER:-analytics_user}:${ANALYTICS_DB_PASSWORD:-analytics_pass}@analytics_db:5432/${ANALYTICS_DB_NAME:-datapulse_analytics}
+    depends_on:
+      analytics_db:
+        condition: service_healthy
+
+  frontend:
+    image: ${ECR_REGISTRY}/datapulse-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  media_data:
+  analytics_data:

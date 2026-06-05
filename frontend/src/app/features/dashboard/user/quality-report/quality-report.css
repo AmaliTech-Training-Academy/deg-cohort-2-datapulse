@@ -1,0 +1,65 @@
+.page { display: flex; flex-direction: column; gap: 24px; }
+.loading { color: var(--color-text-muted); font-size: 14px; padding: 40px; text-align: center; }
+
+.breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.breadcrumb a { color: var(--color-text-secondary); }
+.breadcrumb a:hover { color: var(--color-text-primary); text-decoration: none; }
+.breadcrumb__sep { color: var(--color-text-muted); }
+.breadcrumb span:last-child { color: var(--color-text-primary); font-weight: 500; }
+
+.page__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.page__title { font-size: 22px; font-weight: 700; color: var(--color-text-primary); }
+.page__subtitle { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
+.header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.version-selector {
+  padding: 7px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  font-size: 13px; color: var(--color-text-secondary); cursor: pointer; background: var(--color-surface);
+}
+
+.btn-secondary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--color-surface); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: 13px; font-weight: 500; cursor: pointer; }
+.btn-secondary:hover { background: var(--color-surface-raised); }
+.btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--color-primary); color: var(--color-primary-text); border: none; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-primary:hover { background: var(--color-primary-hover); }
+
+.report-grid { display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start; }
+
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 20px 24px; }
+
+.card__header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.card__title { font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+.card__subtitle { font-size: 12px; color: var(--color-text-muted); }
+
+.score-ring-wrapper { display: flex; justify-content: center; padding: 20px 0; }
+
+.category-scores { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.category-item { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 4px 8px; }
+.category-name { font-size: 13px; color: var(--color-text-primary); font-weight: 500; }
+.category-value { font-size: 13px; color: var(--color-text-secondary); font-weight: 600; }
+.category-bar { grid-column: 1 / -1; height: 6px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden; }
+.category-fill { height: 100%; border-radius: var(--radius-full); transition: width 0.5s ease; }
+
+.rules-count { padding: 3px 10px; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-full); font-size: 12px; color: var(--color-text-secondary); }
+
+.findings-list { display: flex; flex-direction: column; gap: 2px; }
+
+.finding-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border-radius: var(--radius-md); transition: background 0.15s; }
+.finding-item:hover { background: var(--color-surface-raised); }
+.finding-item--failed { border-left: 3px solid var(--color-warning); padding-left: 9px; }
+
+.finding-icon { flex-shrink: 0; margin-top: 2px; }
+.finding-body { flex: 1; }
+.finding-name { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+.finding-desc { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
+
+.finding-result { flex-shrink: 0; }
+.finding-pill { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: var(--radius-full); }
+.finding-pill--fail { background: color-mix(in srgb, var(--color-warning) 14%, transparent); color: var(--color-warning); }
+.finding-pill--pass { background: color-mix(in srgb, var(--color-success) 14%, transparent); color: var(--color-success); }
+
+@media (max-width: 900px) { .report-grid { grid-template-columns: 1fr; } }
+
+@media (max-width: 767px) {
+  .page__header { flex-direction: column; align-items: flex-start; }
+  .header-actions { flex-wrap: wrap; }
+}

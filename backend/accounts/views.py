@@ -7,8 +7,14 @@ all request/response bodies correctly.
 
 import logging
 
-from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework import status
+from django.contrib.auth import get_user_model
+from django.db.models import Count
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiResponse,
+    extend_schema,
+)
+from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -16,6 +22,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts.emails import send_password_reset_email, send_verification_email
+from accounts.permissions import IsAdminUser
 from accounts.throttles import (
     ForgotPasswordThrottle,
     LoginThrottle,
@@ -27,10 +34,13 @@ from accounts.serializers import (
     RegisterSerializer,
     ResendVerificationSerializer,
     ResetPasswordSerializer,
+    UserListSerializer,
     UserProfileSerializer,
     VerifyEmailSerializer,
 )
 from .tokens import make_email_verification_token, password_reset_token_generator
+
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +60,39 @@ class RegisterView(APIView):
                 description="Validation error (e.g. passwords don't match, email taken)"
             ),
         },
+        examples=[
+            OpenApiExample(
+                name="Regular User",
+                summary="Register a standard user account",
+                description=(
+                    "Creates a user with role=user. "
+                    "A verification email is sent — the account cannot log in until verified."
+                ),
+                value={
+                    "email": "alice@company.com",
+                    "first_name": "Alice",
+                    "last_name": "Mbeki",
+                    "password": "SecurePass123!",
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Admin User",
+                summary="Register an admin account",
+                description=(
+                    "Creates a user with role=admin. "
+                    "Admin accounts have elevated permissions within the platform."
+                ),
+                value={
+                    "email": "admin@company.com",
+                    "first_name": "Bob",
+                    "last_name": "Kagabo",
+                    "password": "AdminPass456!",
+                    "role": "admin",
+                },
+                request_only=True,
+            ),
+        ],
     )
     def post(self, request: Request) -> Response:
         serializer = RegisterSerializer(data=request.data)
@@ -225,4 +268,38 @@ class ResetPasswordView(APIView):
             {
                 "message": "Password reset successful. You can now log in with your new password."
             }
+        )
+
+
+class UserListView(generics.ListAPIView):
+    """
+    GET /api/v1/auth/users/
+
+    Admin-only. Returns all registered users with dataset count and login info.
+    Regular users receive 403.
+    """
+
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    serializer_class = UserListSerializer
+
+    @extend_schema(
+        tags=["Authentication"],
+        summary="List all users (admin only)",
+        description=(
+            "Returns a paginated list of all registered users. "
+            "Includes dataset count and last login per user. "
+            "Only accessible to users with role='admin'."
+        ),
+        responses={
+            200: UserListSerializer(many=True),
+            403: OpenApiResponse(description="Admin access required"),
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return (
+            User.objects.annotate(datasets_count=Count("datasets"))
+            .order_by("-created_at")
         )

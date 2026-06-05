@@ -11,14 +11,55 @@ import { authReducer } from './features/auth/store/auth.reducer';
 import * as authEffects from './features/auth/store/auth.effects';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { errorInterceptor } from './core/interceptors/error.interceptor';
+import { projectsReducer } from './features/dashboard/store/projects/projects.reducer';
+import * as projectsEffects from './features/dashboard/store/projects/projects.effects';
+import { projectDetailReducer } from './features/dashboard/store/project-detail/project-detail.reducer';
+import * as projectDetailEffects from './features/dashboard/store/project-detail/project-detail.effects';
+import { reportsReducer } from './features/dashboard/store/reports/reports.reducer';
+import * as reportsEffects from './features/dashboard/store/reports/reports.effects';
+import { trendsReducer } from './features/dashboard/store/trends/trends.reducer';
+import * as trendsEffects from './features/dashboard/store/trends/trends.effects';
+import { reportDetailReducer } from './features/dashboard/store/report-detail/report-detail.reducer';
+import * as reportDetailEffects from './features/dashboard/store/report-detail/report-detail.effects';
+import { projectCreationReducer } from './features/dashboard/store/project-creation/project-creation.reducer';
+import * as projectCreationEffects from './features/dashboard/store/project-creation/project-creation.effects';
+import { validationRulesReducer } from './features/dashboard/store/validation-rules/validation-rules.reducer';
+import * as validationRulesEffects from './features/dashboard/store/validation-rules/validation-rules.effects';
+import { adminProjectsReducer } from './features/dashboard/store/admin-projects/admin-projects.reducer';
+import * as adminProjectsEffects from './features/dashboard/store/admin-projects/admin-projects.effects';
+import { adminUsersReducer } from './features/dashboard/store/admin-users/admin-users.reducer';
+import * as adminUsersEffects from './features/dashboard/store/admin-users/admin-users.effects';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor])),
-    provideStore({ auth: authReducer }),
-    provideEffects(authEffects),
+    // errorInterceptor first so authInterceptor handles the raw HttpErrorResponse (401 refresh logic)
+    provideHttpClient(withInterceptors([errorInterceptor, authInterceptor])),
+    provideStore({
+      auth: authReducer,
+      projects: projectsReducer,
+      projectDetail: projectDetailReducer,
+      reports: reportsReducer,
+      trends: trendsReducer,
+      reportDetail: reportDetailReducer,
+      projectCreation: projectCreationReducer,
+      validationRules: validationRulesReducer,
+      adminProjects: adminProjectsReducer,
+      adminUsers: adminUsersReducer,
+    }),
+    provideEffects(
+      authEffects,
+      projectsEffects,
+      projectDetailEffects,
+      reportsEffects,
+      trendsEffects,
+      reportDetailEffects,
+      projectCreationEffects,
+      validationRulesEffects,
+      adminProjectsEffects,
+      adminUsersEffects,
+    ),
     ...(environment.production ? [] : [provideStoreDevtools({ maxAge: 25 })]),
   ],
 };

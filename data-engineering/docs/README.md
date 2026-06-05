@@ -2,14 +2,22 @@
 
 ## Quick Start
 
-From the repo root, copy the environment file and spin up the full stack:
+All services are managed from a single Docker Compose file at the repo root.
+Set up your environment and start the core stack:
 
 ```bash
+# From repo root
 cp .env.example .env
 docker compose up --build -d
 ```
 
 This gives you PostgreSQL on `localhost:5433` and the Django API on `localhost:8000`.
+
+Then start the pipeline and analytics DB:
+
+```bash
+docker compose --profile pipeline up --build -d
+```
 
 ---
 
@@ -96,3 +104,7 @@ data-engineering/
     ├── analytics_schema.sql ← analytics table DDL
     └── analytics_queries.sql← trend and report queries
 ```
+
+## Documentation
+
+For full schema reference — all tables, columns, indexes, ETL flow, and validation rule types — see [`docs/data_dictionary.md`](docs/data_dictionary.md).

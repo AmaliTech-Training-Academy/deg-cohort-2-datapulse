@@ -1,7 +1,14 @@
 <app-auth-layout subtitle="Monitor the quality of every dataset you ship.">
   <form [formGroup]="form" (ngSubmit)="submit()" class="auth-form" novalidate>
     @if (error()) {
-      <div class="auth-alert" role="alert">{{ error() }}</div>
+      <div class="auth-alert" role="alert">
+        {{ error() }}
+        @if (emailNotVerified) {
+          <button type="button" class="resend-btn" (click)="resendVerification()">
+            Resend verification email
+          </button>
+        }
+      </div>
     }
 
     <app-input
@@ -19,15 +26,11 @@
       autocomplete="current-password"
       formControlName="password"
     >
-      <a labelAction routerLink="/reset-password" class="field-action">Forgot password?</a>
+      <a labelAction routerLink="/forgot-password" class="field-action">Forgot password?</a>
     </app-input>
 
-    <app-button type="submit" [loading]="loading()" [fullWidth]="true">
-      Sign in
-    </app-button>
+    <app-button type="submit" [loading]="loading()" [fullWidth]="true"> Sign in </app-button>
 
-    <p class="auth-footer">
-      New to DataPulse? <a routerLink="/register">Create an account</a>
-    </p>
+    <p class="auth-footer">New to DataPulse? <a routerLink="/register">Create an account</a></p>
   </form>
 </app-auth-layout>

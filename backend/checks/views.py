@@ -7,37 +7,31 @@ This is the only view in the checks app — it triggers a validation run.
 All report retrieval views (list, detail, trends, dashboard) live in
 reports/views.py.
 
+The validation logic lives in checks/services/check_service.py and is shared
+with DatasetFileUpdateView (auto-check after file replacement).
+
 Flow:
   1. Verify dataset ownership
   2. Verify dataset has at least one rule
-  3. Create QualityReport (status=running)
-  4. Load file into Pandas via FileUploadService
-  5. Run ValidationEngine
-  6. Compute score via QualityScoreCalculator
-  7. Save one RuleFinding per rule
-  8. Mark QualityReport as completed
-  9. Upsert TrendMetric for today
-  10. Return serialized report
+  3. Delegate to run_quality_check() → QualityReport
+  4. Return serialized report
 """
 
 import logging
 
-from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from datasets.models import Dataset
-from datasets.services.file_service import FileUploadService
-from reports.models import QualityReport, RuleFinding, TrendMetric
-from reports.serializers import QualityReportSerializer
+from reports.serializers import RunCheckResponseSerializer
 from rules.models import ValidationRule
 
-from .services.scoring_service import QualityScoreCalculator
-from .services.validation_engine import ValidationEngine
+from .services.check_service import run_quality_check
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +48,22 @@ class RunCheckView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        request=None,
+        responses={
+            201: RunCheckResponseSerializer,
+            400: None,
+            404: None,
+        },
+        summary="Run a quality check on a dataset",
+        description=(
+            "Triggers a full validation run against all rules defined for the dataset. "
+            "Returns the completed QualityReport with per-rule findings, overall score, "
+            "average_score, rules_applied, failing_checks, passing_checks, and "
+            "per-rule-type scores for all 4 rule types. "
+            "Requires at least one rule to exist."
+        ),
+    )
     def post(self, request: Request, dataset_id: str) -> Response:
         # 1. Ownership check
         try:
@@ -62,95 +72,35 @@ class RunCheckView(APIView):
             raise NotFound("Dataset not found.")
 
         # 2. Require at least one rule
-        rules = ValidationRule.objects.filter(dataset=dataset)
-        if not rules.exists():
-            return Response(
-                {
-                    "error": {
-                        "code": "NO_RULES",
-                        "message": (
-                            "No validation rules defined for this dataset. "
-                            "Add at least one rule before running a check."
-                        ),
-                        "fields": {},
-                    }
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+        if not ValidationRule.objects.filter(dataset=dataset).exists():
+            raise ValidationError(
+                "No validation rules defined for this dataset. "
+                "Add at least one rule before running a check."
             )
 
-        # 3. Create report record — status=running immediately
-        report = QualityReport.objects.create(
-            dataset=dataset, status=QualityReport.Status.RUNNING
-        )
+        # 3. Run the check — all ACID logic is inside run_quality_check()
+        report = run_quality_check(dataset)
 
-        try:
-            # 4. Load the file into a DataFrame
-            service = FileUploadService()
-            df = service._parse(dataset.file_path, dataset.file_type)
-
-            # 5. Run the validation engine
-            engine = ValidationEngine(df)
-            results, failed_union = engine.run(rules)
-
-            # 6. Compute quality score
-            calculator = QualityScoreCalculator()
-            score_result = calculator.calculate(
-                total_rows=len(df),
-                failed_union=failed_union,
-            )
-
-            # 7. Persist one RuleFinding per rule result
-            findings = [
-                RuleFinding(
-                    quality_report=report,
-                    rule_id=result.rule_id,
-                    rows_checked=result.rows_checked,
-                    rows_failed=result.rows_failed,
-                    failure_percentage=result.failure_percentage,
-                    error_details=result.error_details,
-                )
-                for result in results
-            ]
-            RuleFinding.objects.bulk_create(findings)
-
-            # 8. Mark report as completed
-            report.status = QualityReport.Status.COMPLETED
-            report.overall_score = score_result.overall_score
-            report.total_rows_passed = score_result.total_rows_passed
-            report.total_rows_failed = score_result.total_rows_failed
-            report.save()
-
-            # 9. Upsert today's trend snapshot
-            TrendMetric.objects.update_or_create(
-                dataset=dataset,
-                snapshot_date=timezone.now().date(),
-                defaults={"aggregated_score": score_result.overall_score},
-            )
-
-            logger.info(
-                "Check completed: report=%s dataset=%s score=%d",
-                report.id,
-                dataset.id,
-                report.overall_score,
-            )
-
-        except Exception as exc:
-            # Always mark failed — never leave status=running
-            report.status = QualityReport.Status.FAILED
-            report.error_message = str(exc)
-            report.save()
-            logger.exception("Check failed: report=%s error=%s", report.id, exc)
+        # 4. Surface engine failures as 500 (report exists but scored as failing)
+        if report.error_message:
             return Response(
                 {
                     "error": {
                         "code": "CHECK_FAILED",
-                        "message": f"Validation run failed: {exc}",
+                        "message": f"Validation run failed: {report.error_message}",
                         "fields": {},
                     }
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        # 10. Return completed report with all findings
-        serializer = QualityReportSerializer(report)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Prefetch findings + rules so serializer computed fields don't N+1
+        from reports.models import QualityReport
+
+        report = QualityReport.objects.prefetch_related("findings__rule").get(
+            id=report.id
+        )
+        return Response(
+            RunCheckResponseSerializer(report).data,
+            status=status.HTTP_201_CREATED,
+        )

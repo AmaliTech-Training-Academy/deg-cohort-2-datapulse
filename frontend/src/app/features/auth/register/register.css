@@ -36,3 +36,73 @@
   color: var(--color-link);
   font-weight: 500;
 }
+
+/* Registration success state */
+.register-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.register-success__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background-color: rgba(34, 197, 94, 0.12);
+  color: var(--color-success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.register-success__title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.register-success__message {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  max-width: 320px;
+}
+
+.register-success__message strong {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.register-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--color-link);
+  font-weight: 500;
+  text-decoration: none;
+  margin-top: 4px;
+}
+
+.register-back-link:hover {
+  text-decoration: underline;
+}
+
+.resend-btn {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.resend-btn:hover {
+  opacity: 0.8;
+}
