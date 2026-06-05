@@ -15,6 +15,7 @@ interface ChartData {
   yLabels: { y: number; label: number }[];
   pad: { top: number; right: number; bottom: number; left: number };
   chartH: number;
+  isSinglePoint: boolean;
 }
 
 @Component({
@@ -34,7 +35,7 @@ export class TrendChartComponent {
 
   protected readonly chartData = computed((): ChartData | null => {
     const pts = this.points();
-    if (pts.length < 2) return null;
+    if (pts.length < 1) return null;
 
     const w = this.width();
     const h = this.height();
@@ -43,14 +44,23 @@ export class TrendChartComponent {
     const chartH = h - pad.top - pad.bottom;
     const minY = this.minScore();
     const maxY = this.maxScore();
-    const xStep = chartW / (pts.length - 1);
+    const isSinglePoint = pts.length === 1;
 
-    const coords: ChartCoord[] = pts.map((pt, i) => ({
-      x: pad.left + i * xStep,
-      y: pad.top + chartH - ((pt.score - minY) / (maxY - minY)) * chartH,
-      label: pt.version,
-      score: pt.score,
-    }));
+    const coords: ChartCoord[] = isSinglePoint
+      ? [
+          {
+            x: pad.left + chartW / 2,
+            y: pad.top + chartH - ((pts[0].score - minY) / (maxY - minY)) * chartH,
+            label: pts[0].version,
+            score: pts[0].score,
+          },
+        ]
+      : pts.map((pt, i) => ({
+          x: pad.left + (i * chartW) / (pts.length - 1),
+          y: pad.top + chartH - ((pt.score - minY) / (maxY - minY)) * chartH,
+          label: pt.version,
+          score: pt.score,
+        }));
 
     const polylinePoints = coords.map((c) => `${c.x},${c.y}`).join(' ');
     const areaPath = [
@@ -69,6 +79,6 @@ export class TrendChartComponent {
       };
     });
 
-    return { coords, polylinePoints, areaPath, yLabels, pad, chartH };
+    return { coords, polylinePoints, areaPath, yLabels, pad, chartH, isSinglePoint };
   });
 }

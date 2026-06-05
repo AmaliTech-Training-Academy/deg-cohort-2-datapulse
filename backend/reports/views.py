@@ -282,8 +282,9 @@ class TrendView(APIView):
     """
     GET /api/v1/datasets/<dataset_id>/trends/
 
-    Returns all trend_metrics rows for a dataset, ordered oldest → newest.
-    Each entry is one date + score snapshot — used to draw the trend chart.
+    Returns one trend point per QualityReport, ordered oldest → newest.
+    Each entry carries the report's generated_at date and overall_score so the
+    chart reflects every run-check, not just one snapshot per calendar day.
     """
 
     permission_classes = [IsAuthenticated]
@@ -306,22 +307,26 @@ class TrendView(APIView):
             ),
         ],
         responses={200: TrendMetricSerializer(many=True)},
-        summary="List trend metrics for a dataset",
+        summary="List trend points for a dataset",
         description=(
-            "Returns daily quality score snapshots for a dataset, ordered oldest to newest. "
+            "Returns one quality score point per completed run-check, ordered oldest to newest. "
             "Supports date range filtering via date_from and date_to (YYYY-MM-DD). "
             "Not paginated — trend data is consumed whole by the frontend chart."
         ),
     )
     def get(self, request: Request, dataset_id: str) -> Response:
         dataset = _get_dataset_for_user(dataset_id, request.user)
-        queryset = TrendMetric.objects.filter(dataset=dataset).order_by("snapshot_date")
+
+        queryset = (
+            QualityReport.objects.filter(dataset=dataset, overall_score__isnull=False)
+            .order_by("generated_at")
+        )
 
         # Filter: ?date_from=YYYY-MM-DD
         date_from = request.query_params.get("date_from")
         if date_from:
             try:
-                queryset = queryset.filter(snapshot_date__gte=date_from)
+                queryset = queryset.filter(generated_at__date__gte=date_from)
             except (ValueError, TypeError):
                 raise ValidationError(
                     {"date_from": "Invalid date format. Use YYYY-MM-DD."}
@@ -331,13 +336,20 @@ class TrendView(APIView):
         date_to = request.query_params.get("date_to")
         if date_to:
             try:
-                queryset = queryset.filter(snapshot_date__lte=date_to)
+                queryset = queryset.filter(generated_at__date__lte=date_to)
             except (ValueError, TypeError):
                 raise ValidationError(
                     {"date_to": "Invalid date format. Use YYYY-MM-DD."}
                 )
 
-        return Response(TrendMetricSerializer(queryset, many=True).data)
+        data = [
+            {
+                "snapshot_date": report.generated_at.date().isoformat(),
+                "aggregated_score": report.overall_score,
+            }
+            for report in queryset
+        ]
+        return Response(data)
 
 
 class DashboardView(APIView):

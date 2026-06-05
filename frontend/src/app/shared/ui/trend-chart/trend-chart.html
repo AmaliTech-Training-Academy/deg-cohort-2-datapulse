@@ -28,16 +28,28 @@
       >{{ yl.label }}</text>
     }
 
-    <path [attr.d]="data.areaPath" [attr.fill]="'url(#' + gradientId + ')'" />
-
-    <polyline
-      [attr.points]="data.polylinePoints"
-      fill="none"
-      stroke="var(--color-primary)"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
+    @if (data.isSinglePoint) {
+      <line
+        [attr.x1]="data.pad.left"
+        [attr.y1]="data.coords[0].y"
+        [attr.x2]="width() - data.pad.right"
+        [attr.y2]="data.coords[0].y"
+        stroke="var(--color-primary)"
+        stroke-width="1.5"
+        stroke-dasharray="5 4"
+        opacity="0.5"
+      />
+    } @else {
+      <path [attr.d]="data.areaPath" [attr.fill]="'url(#' + gradientId + ')'" />
+      <polyline
+        [attr.points]="data.polylinePoints"
+        fill="none"
+        stroke="var(--color-primary)"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    }
 
     @for (c of data.coords; track c.label) {
       <circle
