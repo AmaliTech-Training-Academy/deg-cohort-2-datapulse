@@ -60,6 +60,7 @@ interface ReportAsDataset {
   status: ProjectStatus;
   uploadedAt: string;
   activeRules: number;
+  passingRows: number;
   failingRows: number;
 }
 
@@ -129,6 +130,7 @@ export class ProjectDetailComponent implements OnInit, OnDestroy {
       status: r.status,
       uploadedAt: r.generatedAt,
       activeRules: 0,
+      passingRows: r.totalRowsPassed ?? 0,
       failingRows: r.totalRowsFailed ?? 0,
     }));
 

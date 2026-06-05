@@ -55,6 +55,8 @@
 .value--danger { color: var(--color-danger) !important; }
 
 .td-muted { color: var(--color-text-secondary); }
+.td-success { color: var(--color-success); font-weight: 500; }
+.td-danger { color: var(--color-danger); font-weight: 500; }
 
 @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
 
