@@ -6,28 +6,31 @@
     </div>
   </div>
 
-  @if (stats(); as s) {
+  @if (loading()) {
+    <div class="loading">Loading overview…</div>
+  } @else {
     <div class="stats-grid">
       <app-stat-card
         label="Total Projects"
-        [value]="s.totalProjects"
-        [subtitle]="'+' + s.projectDelta + ' this month'"
+        [value]="stats().totalProjects"
+        subtitle="across all users"
       />
       <app-stat-card
         label="Active Users"
-        [value]="s.activeUsers"
-        [subtitle]="s.adminCount + ' admins'"
-      />
-      <app-stat-card
-        label="Checks Today"
-        [value]="s.checksToday.toLocaleString()"
-        [subtitle]="'across ' + s.checksDatasetsCount + ' datasets'"
+        [value]="stats().activeUsers"
+        [subtitle]="stats().adminCount + ' admins'"
       />
       <app-stat-card
         label="Failing Datasets"
-        [value]="s.failingDatasets"
+        [value]="stats().failingDatasets"
         subtitle="needs attention"
         valueClass="value--danger"
+      />
+      <app-stat-card
+        label="Healthy Datasets"
+        [value]="stats().totalProjects - stats().failingDatasets"
+        subtitle="score ≥ 70"
+        valueClass="value--success"
       />
     </div>
 
@@ -35,9 +38,7 @@
       <section class="card projects-card">
         <div class="card__header">
           <h2 class="card__title">Recent projects</h2>
-          <p class="card__subtitle" style="flex: 1; margin-left: 8px">
-            Latest activity across the org
-          </p>
+          <p class="card__subtitle" style="flex:1; margin-left:8px">Latest activity</p>
           <a routerLink="/dashboard/all-projects" class="card__link">View all</a>
         </div>
         <table class="data-table">
@@ -51,23 +52,28 @@
             </tr>
           </thead>
           <tbody>
-            @for (project of recentProjects(); track project.id) {
+            @for (d of recentProjects(); track d.id) {
               <tr>
-                <td class="project-name">{{ project.name }}</td>
-                <td class="td-muted">{{ project.ownerName }}</td>
+                <td class="project-name">{{ d.name }}</td>
+                <td class="td-muted">{{ d.ownerName }}</td>
                 <td>
-                  <span [class]="'score ' + scoreClass(project.avgScore)">{{
-                    project.avgScore
-                  }}</span>
+                  @if (d.reportsCount > 0) {
+                    <span [class]="'score ' + scoreClass(d.score)">{{ d.score }}</span>
+                  } @else {
+                    <span class="td-muted">—</span>
+                  }
                 </td>
                 <td>
-                  <app-badge
-                    [label]="statusLabel(project.status)"
-                    [variant]="statusVariant(project.status)"
-                  />
+                  @if (d.reportsCount > 0) {
+                    <app-badge [label]="statusLabel(d.status)" [variant]="statusVariant(d.status)" />
+                  } @else {
+                    <span class="td-muted">No runs</span>
+                  }
                 </td>
-                <td class="td-muted">{{ relativeTime(project.lastRunAt) }}</td>
+                <td class="td-muted">{{ relativeTime(d.lastRunAt) }}</td>
               </tr>
+            } @empty {
+              <tr><td colspan="5" class="empty-row">No projects yet.</td></tr>
             }
           </tbody>
         </table>
@@ -76,9 +82,7 @@
       <section class="card users-card">
         <div class="card__header">
           <h2 class="card__title">Recent users</h2>
-          <p class="card__subtitle" style="flex: 1; margin-left: 8px">
-            Latest activity across the org
-          </p>
+          <p class="card__subtitle" style="flex:1; margin-left:8px">Newest registrations</p>
           <a routerLink="/dashboard/users" class="card__link">View all</a>
         </div>
         <table class="data-table">
@@ -86,8 +90,8 @@
             <tr>
               <th>NAME</th>
               <th>ROLE</th>
-              <th>PROJECTS</th>
-              <th>STATUS</th>
+              <th>DATASETS</th>
+              <th>LAST LOGIN</th>
             </tr>
           </thead>
           <tbody>
@@ -95,33 +99,25 @@
               <tr>
                 <td>
                   <div class="user-cell">
-                    <div class="user-avatar">{{ user.name[0] }}</div>
+                    <div class="user-avatar">{{ user.fullName[0] }}</div>
                     <div>
-                      <div class="user-name">{{ user.name }}</div>
+                      <div class="user-name">{{ user.fullName }}</div>
+                      <div class="user-email">{{ user.email }}</div>
                     </div>
                   </div>
                 </td>
                 <td>
                   <app-badge
                     [label]="user.role === 'admin' ? 'Admin' : 'User'"
-                    [variant]="userRoleBadge(user.role)"
+                    [variant]="roleBadge(user.role)"
                     [dot]="false"
                   />
                 </td>
-                <td class="td-center">{{ user.projectCount }}</td>
-                <td>
-                  <app-badge
-                    [label]="
-                      user.status === 'active'
-                        ? 'Active'
-                        : user.status === 'invited'
-                          ? 'Invited'
-                          : 'Suspended'
-                    "
-                    [variant]="userStatusBadge(user.status)"
-                  />
-                </td>
+                <td class="td-center">{{ user.datasetsCount }}</td>
+                <td class="td-muted">{{ relativeTime(user.lastLogin) }}</td>
               </tr>
+            } @empty {
+              <tr><td colspan="4" class="empty-row">No users yet.</td></tr>
             }
           </tbody>
         </table>

@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../../../environments/environment';
@@ -15,6 +15,11 @@ import {
   ApiValidationRule,
   CreateRuleRequest,
 } from '../models/validation-rule.model';
+import {
+  AdminDatasetsParams,
+  ApiAdminDatasetsResponse,
+} from '../models/admin-dataset.model';
+import { ApiAdminUsersResponse } from '../models/admin-user.model';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardApiService {
@@ -76,5 +81,23 @@ export class DashboardApiService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.patch<void>(`${this.base}/datasets/${datasetId}/file/`, formData);
+  }
+
+  getAdminDatasets(params: AdminDatasetsParams = {}): Observable<ApiAdminDatasetsResponse> {
+    let p = new HttpParams();
+    if (params.search) p = p.set('search', params.search);
+    if (params.file_type) p = p.set('file_type', params.file_type);
+    if (params.created_from) p = p.set('created_from', params.created_from);
+    if (params.created_to) p = p.set('created_to', params.created_to);
+    if (params.page) p = p.set('page', params.page);
+    if (params.page_size) p = p.set('page_size', params.page_size);
+    return this.http.get<ApiAdminDatasetsResponse>(`${this.base}/datasets/`, { params: p });
+  }
+
+  getAdminUsers(params: { page?: number; page_size?: number } = {}): Observable<ApiAdminUsersResponse> {
+    let p = new HttpParams();
+    if (params.page) p = p.set('page', params.page);
+    if (params.page_size) p = p.set('page_size', params.page_size);
+    return this.http.get<ApiAdminUsersResponse>(`${this.base}/auth/users/`, { params: p });
   }
 }
