@@ -36,7 +36,7 @@ from core.pagination import DataPulsePagination
 
 from datasets.models import Dataset
 
-from .models import QualityReport, TrendMetric
+from .models import QualityReport
 from .serializers import (
     DashboardSerializer,
     ReportDetailSerializer,
