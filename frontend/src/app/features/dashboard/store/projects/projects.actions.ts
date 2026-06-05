@@ -10,3 +10,16 @@ export const loadProjectsFailure = createAction(
   '[Projects] Load Projects Failure',
   props<{ error: string }>(),
 );
+
+export const deleteProject = createAction(
+  '[Projects] Delete Project',
+  props<{ datasetId: string }>(),
+);
+export const deleteProjectSuccess = createAction(
+  '[Projects] Delete Project Success',
+  props<{ datasetId: string }>(),
+);
+export const deleteProjectFailure = createAction(
+  '[Projects] Delete Project Failure',
+  props<{ error: string }>(),
+);

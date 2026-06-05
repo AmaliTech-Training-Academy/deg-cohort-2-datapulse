@@ -68,6 +68,10 @@ export class DashboardApiService {
     return this.http.delete<void>(`${this.base}/rules/${ruleId}/`);
   }
 
+  deleteDataset(datasetId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/datasets/${datasetId}/`);
+  }
+
   uploadNewVersion(datasetId: string, file: File): Observable<void> {
     const formData = new FormData();
     formData.append('file', file);

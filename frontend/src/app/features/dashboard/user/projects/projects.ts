@@ -1,10 +1,13 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { BadgeComponent } from '../../../../shared/ui/badge/badge';
+import { ConfirmationModalComponent } from '../../../../shared/ui/confirmation-modal/confirmation-modal';
 import * as ProjectsActions from '../../store/projects/projects.actions';
 import {
   selectAllProjects,
+  selectDeleteError,
+  selectDeleteLoadingId,
   selectProjectsError,
   selectProjectsLoading,
 } from '../../store/projects/projects.selectors';
@@ -12,7 +15,7 @@ import {
 @Component({
   selector: 'app-my-projects',
   standalone: true,
-  imports: [RouterLink, BadgeComponent],
+  imports: [RouterLink, BadgeComponent, ConfirmationModalComponent],
   templateUrl: './projects.html',
   styleUrl: './projects.css',
 })
@@ -23,6 +26,10 @@ export class MyProjectsComponent implements OnInit {
   protected readonly projects = this.store.selectSignal(selectAllProjects);
   protected readonly loading = this.store.selectSignal(selectProjectsLoading);
   protected readonly error = this.store.selectSignal(selectProjectsError);
+  protected readonly deleteLoadingId = this.store.selectSignal(selectDeleteLoadingId);
+  protected readonly deleteError = this.store.selectSignal(selectDeleteError);
+
+  protected readonly deleteTargetId = signal<string | null>(null);
 
   ngOnInit(): void {
     this.store.dispatch(ProjectsActions.loadProjects());
@@ -99,6 +106,22 @@ export class MyProjectsComponent implements OnInit {
       activity: '#dc2626',
     };
     return colors[iconKey] ?? '#6b7280';
+  }
+
+  protected requestDelete(id: string): void {
+    this.deleteTargetId.set(id);
+  }
+
+  protected confirmDelete(): void {
+    const id = this.deleteTargetId();
+    if (id) {
+      this.store.dispatch(ProjectsActions.deleteProject({ datasetId: id }));
+    }
+    this.deleteTargetId.set(null);
+  }
+
+  protected cancelDelete(): void {
+    this.deleteTargetId.set(null);
   }
 
   protected navigateToProject(id: string): void {

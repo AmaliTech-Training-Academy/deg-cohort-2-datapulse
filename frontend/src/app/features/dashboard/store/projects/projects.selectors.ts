@@ -12,3 +12,11 @@ export const selectProjectsLoading = createSelector(
   (state) => state.loading,
 );
 export const selectProjectsError = createSelector(selectProjectsState, (state) => state.error);
+export const selectDeleteLoadingId = createSelector(
+  selectProjectsState,
+  (state) => state.deleteLoadingId,
+);
+export const selectDeleteError = createSelector(
+  selectProjectsState,
+  (state) => state.deleteError,
+);
