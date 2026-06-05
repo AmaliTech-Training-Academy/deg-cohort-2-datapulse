@@ -6,6 +6,8 @@ import * as ProjectsActions from './projects.actions';
 export interface ProjectsState extends EntityState<Project> {
   loading: boolean;
   error: string | null;
+  deleteLoadingId: string | null;
+  deleteError: string | null;
 }
 
 export const projectAdapter: EntityAdapter<Project> = createEntityAdapter<Project>();
@@ -13,6 +15,8 @@ export const projectAdapter: EntityAdapter<Project> = createEntityAdapter<Projec
 export const initialState: ProjectsState = projectAdapter.getInitialState({
   loading: false,
   error: null,
+  deleteLoadingId: null,
+  deleteError: null,
 });
 
 export const projectsReducer = createReducer(
@@ -25,5 +29,18 @@ export const projectsReducer = createReducer(
     ...state,
     loading: false,
     error,
+  })),
+  on(ProjectsActions.deleteProject, (state, { datasetId }) => ({
+    ...state,
+    deleteLoadingId: datasetId,
+    deleteError: null,
+  })),
+  on(ProjectsActions.deleteProjectSuccess, (state, { datasetId }) =>
+    projectAdapter.removeOne(datasetId, { ...state, deleteLoadingId: null }),
+  ),
+  on(ProjectsActions.deleteProjectFailure, (state, { error }) => ({
+    ...state,
+    deleteLoadingId: null,
+    deleteError: error,
   })),
 );

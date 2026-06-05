@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { catchError, exhaustMap, map, switchMap } from 'rxjs/operators';
 import { of } from 'rxjs';
 import * as ProjectsActions from './projects.actions';
 import { DashboardApiService } from '../../services/dashboard-api.service';
@@ -18,6 +18,22 @@ export const loadProjectsEffect = createEffect(
             }),
           ),
           catchError((err) => of(ProjectsActions.loadProjectsFailure({ error: err.message }))),
+        ),
+      ),
+    ),
+  { functional: true },
+);
+
+export const deleteProjectEffect = createEffect(
+  (actions$ = inject(Actions), api = inject(DashboardApiService)) =>
+    actions$.pipe(
+      ofType(ProjectsActions.deleteProject),
+      exhaustMap(({ datasetId }) =>
+        api.deleteDataset(datasetId).pipe(
+          map(() => ProjectsActions.deleteProjectSuccess({ datasetId })),
+          catchError((err) =>
+            of(ProjectsActions.deleteProjectFailure({ error: err.message ?? 'Delete failed.' })),
+          ),
         ),
       ),
     ),
