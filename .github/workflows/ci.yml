@@ -57,8 +57,12 @@ jobs:
           cd backend
           pytest tests/ -v --tb=short || [ $? -eq 5 ]
 
+  # ------------------------------------------------------
+  # DATA ENGINEERING TESTS
+  # ------------------------------------------------------
   test-data-engineering:
     runs-on: ubuntu-latest
+
     services:
       analytics-db:
         image: postgres:15
@@ -73,17 +77,28 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
     env:
       TARGET_DB_URL: postgresql://analytics:analytics_pass@localhost:5432/analytics_test
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - run: pip install -r data-engineering/requirements.txt pytest
-      - run: psql $TARGET_DB_URL -f data-engineering/sql/analytics_schema.sql
-      - run: psql $TARGET_DB_URL -f data-engineering/tests/fixtures/test_data.sql
-      - run: pytest data-engineering/tests/ -v --tb=short
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install -r data-engineering/requirements.txt pytest
+
+      - name: Load schema
+        run: psql $TARGET_DB_URL -f data-engineering/sql/analytics_schema.sql
+
+      - name: Load fixtures
+        run: psql $TARGET_DB_URL -f data-engineering/tests/fixtures/test_data.sql
+
+      - name: Run tests
+        run: pytest data-engineering/tests/ -v --tb=short
 
   test-frontend:
     runs-on: ubuntu-latest
