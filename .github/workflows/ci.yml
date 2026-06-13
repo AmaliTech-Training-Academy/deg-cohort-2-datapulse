@@ -250,52 +250,68 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
 
+  # ------------------------------------------------------
+  # PUSH TO ECR
+  # ------------------------------------------------------
   push-to-ecr:
     runs-on: ubuntu-latest
-    needs: [scan-images, test-frontend]
+    needs: scan-images
     if: github.event_name == 'push'
+
     permissions:
       id-token: write
       contents: read
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials via OIDC
+    steps:
+      - name: Download backend image
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-image
+
+      - name: Download pipeline image
+        uses: actions/download-artifact@v4
+        with:
+          name: pipeline-image
+
+      - name: Download frontend image
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-image
+
+      - name: Load images
+        run: |
+          docker load -i backend.tar
+          docker load -i pipeline.tar
+          docker load -i frontend.tar
+
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login to ECR
+      - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push backend
+      - name: Tag images
         run: |
-          docker build \
-            -t ${{ secrets.ECR_REGISTRY }}/datapulse-backend:latest \
-            -t ${{ secrets.ECR_REGISTRY }}/datapulse-backend:${{ github.sha }} \
-            ./backend
-          docker push ${{ secrets.ECR_REGISTRY }}/datapulse-backend:latest
-          docker push ${{ secrets.ECR_REGISTRY }}/datapulse-backend:${{ github.sha }}
+          docker tag datapulse-backend:${{ github.sha }} \
+            ${{ secrets.ECR_REGISTRY }}/datapulse-backend:${{ github.sha }}
 
-      - name: Build and push pipeline
-        run: |
-          docker build \
-            -t ${{ secrets.ECR_REGISTRY }}/datapulse-pipeline:latest \
-            -t ${{ secrets.ECR_REGISTRY }}/datapulse-pipeline:${{ github.sha }} \
-            ./data-engineering
-          docker push ${{ secrets.ECR_REGISTRY }}/datapulse-pipeline:latest
-          docker push ${{ secrets.ECR_REGISTRY }}/datapulse-pipeline:${{ github.sha }}
+          docker tag datapulse-pipeline:${{ github.sha }} \
+            ${{ secrets.ECR_REGISTRY }}/datapulse-pipeline:${{ github.sha }}
 
-      - name: Build and push frontend
-        run: |
-          docker build \
-            -f frontend/Dockerfile.prod \
-            -t ${{ secrets.ECR_REGISTRY }}/datapulse-frontend:latest \
-            -t ${{ secrets.ECR_REGISTRY }}/datapulse-frontend:${{ github.sha }} \
-            ./frontend
-          docker push ${{ secrets.ECR_REGISTRY }}/datapulse-frontend:latest
-          docker push ${{ secrets.ECR_REGISTRY }}/datapulse-frontend:${{ github.sha }}
+          docker tag datapulse-frontend:${{ github.sha }} \
+            ${{ secrets.ECR_REGISTRY }}/datapulse-frontend:${{ github.sha }}
+
+      - name: Push backend
+        run: docker push ${{ secrets.ECR_REGISTRY }}/datapulse-backend:${{ github.sha }}
+
+      - name: Push pipeline
+        run: docker push ${{ secrets.ECR_REGISTRY }}/datapulse-pipeline:${{ github.sha }}
+
+      - name: Push frontend
+        run: docker push ${{ secrets.ECR_REGISTRY }}/datapulse-frontend:${{ github.sha }}
 
   deploy-to-staging:
     runs-on: ubuntu-latest
