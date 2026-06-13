@@ -135,14 +135,64 @@ jobs:
         working-directory: frontend
         run: npm run e2e
 
-  docker-build:
+  # ------------------------------------------------------
+  # BUILD IMAGES ONCE
+  # ------------------------------------------------------
+  build-images:
     runs-on: ubuntu-latest
-    needs: [test-backend, test-data-engineering]
+    needs:
+      - test-backend
+      - test-data-engineering
+      - test-frontend
+
     steps:
       - uses: actions/checkout@v4
-      - run: cp .env.example .env
-      - run: docker build -t datapulse-backend ./backend
-      - run: docker compose config > /dev/null && echo "docker-compose config valid"
+
+      - name: Build backend image
+        run: |
+          docker build \
+            -t datapulse-backend:${{ github.sha }} \
+            ./backend
+
+      - name: Build pipeline image
+        run: |
+          docker build \
+            -t datapulse-pipeline:${{ github.sha }} \
+            ./data-engineering
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            -f frontend/Dockerfile.prod \
+            -t datapulse-frontend:${{ github.sha }} \
+            ./frontend
+
+      - name: Save backend image
+        run: docker save datapulse-backend:${{ github.sha }} -o backend.tar
+
+      - name: Save pipeline image
+        run: docker save datapulse-pipeline:${{ github.sha }} -o pipeline.tar
+
+      - name: Save frontend image
+        run: docker save datapulse-frontend:${{ github.sha }} -o frontend.tar
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-image
+          path: backend.tar
+
+      - name: Upload pipeline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-image
+          path: pipeline.tar
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-image
+          path: frontend.tar
 
   scan-images:
     runs-on: ubuntu-latest
